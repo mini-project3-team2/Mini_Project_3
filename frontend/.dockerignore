@@ -1,0 +1,20 @@
+# 이미지에 비밀정보·불필요 파일이 들어가지 않도록 차단
+# ※ .dockerignore 는 기본적으로 "빌드 컨텍스트 최상위"만 매칭합니다.
+#    비밀정보·캐시는 **/ 로 하위 폴더까지, 빌드 산출물은 최상위만 차단합니다.
+
+# 비밀정보 (VITE_ 값은 Dockerfile 의 build arg 로 전달)
+**/.env
+**/.env.*
+!**/.env.example
+
+# 의존성 / 산출물 (이미지 안에서 npm ci / npm run build 로 새로 만듦)
+**/node_modules
+dist
+build
+coverage
+**/*.log
+
+# 기타
+.vscode
+.idea
+.git

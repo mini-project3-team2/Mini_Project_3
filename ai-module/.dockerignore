@@ -1,0 +1,35 @@
+# 이미지에 비밀정보·불필요 파일이 들어가지 않도록 차단 (API Key 이미지 포함 방지)
+# ⚠️ Dockerfile 의 "COPY . ." 는 .env 까지 복사합니다. 이 파일이 그걸 막습니다.
+# ※ .dockerignore 는 기본적으로 "빌드 컨텍스트 최상위"만 매칭합니다.
+#    - 비밀정보·캐시: **/ 를 붙여 하위 폴더까지 차단
+#    - 데이터 폴더: 최상위만 차단 (소스 패키지 app/vectorstore/ 등은 이미지에 포함되어야 함)
+
+# 비밀정보 (모든 하위 폴더)
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+
+# 캐시 / 로그 (모든 하위 폴더)
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.ipynb_checkpoints
+**/*.ipynb
+**/*.log
+
+# 가상환경 / 로컬 데이터 (최상위만) - 벡터 DB·업로드는 컨테이너 볼륨으로 관리
+.venv
+venv
+env
+faiss_index
+chroma_db
+data
+uploads
+
+# 기타
+.vscode
+.idea
+.git

@@ -1,0 +1,88 @@
+# =========================================================
+#  비밀정보 (절대 커밋 금지) - 실수로 올리면 보안 '설정·운영' 0점
+# =========================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+/secrets/
+# Kubernetes Secret 매니페스트 (base64 는 암호화가 아님!) → secret.example.yaml 만 커밋
+k8s/**/*secret*.yaml
+k8s/**/*secret*.yml
+!k8s/**/*secret*.example.yaml
+application-local.yml
+application-local.properties
+# ※ application.yml / application-prod.yml 은 커밋합니다.
+#    단, 비밀값은 반드시 ${JWT_SECRET} 처럼 환경변수 참조로만 작성합니다.
+
+# =========================================================
+#  OS / IDE
+# =========================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*~
+
+# =========================================================
+#  Backend (Spring Boot / Maven / Gradle)
+# =========================================================
+backend/target/
+backend/build/
+backend/.gradle/
+backend/out/
+backend/uploads/
+*.log
+# ※ 최상위 로그 폴더만 무시 (com/.../logs 같은 소스 패키지는 커밋됨)
+/logs/
+/backend/logs/
+/ai-module/logs/
+hs_err_pid*
+
+# =========================================================
+#  Frontend (React / Vite)
+# =========================================================
+node_modules/
+frontend/dist/
+frontend/build/
+frontend/coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# =========================================================
+#  AI Module (Python / FastAPI / LangChain)
+# =========================================================
+__pycache__/
+*.py[cod]
+.venv/
+/ai-module/venv/
+/ai-module/env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.ipynb_checkpoints/
+
+# 벡터 DB / 업로드 데이터 (컨테이너 볼륨으로 관리)
+# ※ ai-module 최상위 폴더만 무시합니다. (소스 패키지 app/vectorstore/ 등은 커밋됨)
+/ai-module/faiss_index/
+/ai-module/chroma_db/
+/ai-module/data/
+/ai-module/uploads/
+
+# =========================================================
+#  Docker / 기타
+# =========================================================
+docker-compose.override.yml
+*.tar

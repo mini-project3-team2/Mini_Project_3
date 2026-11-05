@@ -1,0 +1,11 @@
+# Windows(CRLF) / Linux(LF) 혼용 시 Docker·셸 스크립트 오류 방지
+* text=auto eol=lf
+
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+*.jar  binary
+*.png  binary
+*.jpg  binary
+*.pdf  binary
+*.docx binary

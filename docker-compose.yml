@@ -1,0 +1,42 @@
+# =========================================================
+#  로컬 개발용 Compose (Day 1: DB만 기동)
+#  실행:  cp .env.example .env  →  값 채우기  →  docker compose up -d
+#
+#  Day 3 에 backend / frontend / ai-service 를 이 파일에 추가합니다.
+#  운영(EC2)용은 docker-compose.prod.yml 로 분리하며,
+#  운영에서는 database / ai-service 의 ports 를 게시하지 않습니다.
+#  ※ Docker Compose v2 (docker compose) 기준. 구버전 docker-compose(v1) 는 사용하지 마세요.
+# =========================================================
+services:
+  database:
+    # 배포(Day 5) 전에 패치 버전까지 고정 권장 (예: mariadb:10.11.x) - 이미지 취약점 관리
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?.env 에 MARIADB_ROOT_PASSWORD 를 설정하세요}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:?.env 에 MARIADB_DATABASE 를 설정하세요}
+      MARIADB_USER: ${MARIADB_USER:?.env 에 MARIADB_USER 를 설정하세요}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?.env 에 MARIADB_PASSWORD 를 설정하세요}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      # 로컬 개발 전용: 127.0.0.1 에만 바인딩 (같은 Wi-Fi 의 다른 PC 에서 접속 불가)
+      - "127.0.0.1:${DB_LOCAL_PORT:-3306}:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - app-net
+
+volumes:
+  db-data:
+
+networks:
+  app-net:

@@ -1,0 +1,22 @@
+# 커밋 전에 비밀정보(API Key, 비밀번호 등) 포함 여부를 자동 검사합니다.
+# 설치(각자 1회):
+#   uv tool install pre-commit   (또는 pip install pre-commit)
+#   pre-commit install
+# 전체 파일 수동 검사:
+#   pre-commit run --all-files
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=5120"] # 보안 점검 캡처·발표 PDF 고려 (5MB)
+      - id: detect-private-key
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: ["--markdown-linebreak-ext=md"] # 산출물 .md 의 줄바꿈(공백 2칸) 보존

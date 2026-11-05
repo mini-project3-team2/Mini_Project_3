@@ -1,0 +1,30 @@
+# 이미지에 비밀정보·불필요 파일이 들어가지 않도록 차단 (비밀정보 이미지 포함 방지)
+# ※ .dockerignore 는 기본적으로 "빌드 컨텍스트 최상위"만 매칭합니다.
+#    비밀정보는 **/ 로 하위 폴더까지, 빌드 산출물·데이터는 최상위만 차단합니다.
+#    (Java 패키지 com/.../upload 같은 소스 폴더가 실수로 빠지지 않도록)
+
+# 비밀정보
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.jks
+**/*.p12
+src/main/resources/application-local.*
+
+# 빌드 산출물 (이미지 안에서 mvn package 로 새로 만듦)
+target
+build
+.gradle
+out
+
+# 로컬 데이터 / 로그
+uploads
+logs
+**/*.log
+
+# 기타
+.idea
+**/*.iml
+.vscode
+.git
