@@ -1,7 +1,7 @@
 """
 로컬 확인용 가짜 AI Module (실제 AI Module 이 준비되기 전까지 Backend 업로드 · 삭제 흐름 확인용)
 실행 (저장소 최상위에서): python backend/scripts/fake-ai-server.py
-  FAKE_AI_MODE=ok(기본) | 422(글자 추출 실패) | 500(AI 오류)  — 예: FAKE_AI_MODE=422 python backend/scripts/fake-ai-server.py
+  FAKE_AI_MODE=ok(기본) | 422(글자 추출 실패) | 500(AI 오류) | error(답변 중 LLM 오류) | hang(답변 중 멈춤 → 타임아웃)  — 예: FAKE_AI_MODE=422 python backend/scripts/fake-ai-server.py
 - X-Internal-Token 은 저장소 최상위 .env 의 AI_INTERNAL_TOKEN 과 비교 (다르면 401)
 - GET /debug/documents : 현재 "적재된" 문서 id 목록 (적재 실패 정리 · 삭제 확인용)
 파일 내용은 출력하지 않는다
@@ -9,6 +9,7 @@
 import json
 import os
 import re
+import time
 from email import policy
 from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -74,7 +75,46 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"documentIds": sorted(STORE)})
         self._send(404, {"error": "NOT_FOUND"})
 
+    def _query_stream(self):
+        """POST /internal/query/stream — owner_uuid 와 document_id $in documentIds 두 조건으로만 검색 (6.3)"""
+        req = json.loads(self._read_body() or b"{}")
+        owner, ids = req.get("ownerUuid"), set(req.get("documentIds") or [])
+        hits = [(i, d) for i, d in STORE.items() if d["ownerUuid"] == owner and i in ids]
+        print(f"질의 ownerUuid={owner} documentIds={sorted(ids)} → 검색된 문서 {[i for i, _ in hits]} mode={MODE}")
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+
+        def event(name, data):
+            self.wfile.write(f"event: {name}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n".encode("utf-8"))
+            self.wfile.flush()
+
+        sources = [{"documentId": i, "documentName": d["documentName"], "page": 1} for i, d in hits[:3]]
+        event("sources", sources)
+        if hits:
+            names = ", ".join(d["documentName"] for _, d in hits[:3])
+            tokens = [f"[{names}] 자료를 근거로 ", "답변을 ", "조금씩 ", "보내고 ", "있어요."]
+        else:
+            tokens = ["올린 자료에서 ", "관련 내용을 찾지 못했어요."]
+        for i, t in enumerate(tokens):
+            if MODE == "error" and i == 2:
+                return event("error", {"code": "LLM_ERROR"})
+            if MODE == "hang" and i == 2:
+                time.sleep(90)
+            event("token", {"text": t})
+            time.sleep(0.4)
+        event("done", {})
+
     def do_POST(self):
+        if urlparse(self.path).path == "/internal/query/stream":
+            if self._authorized():
+                try:
+                    self._query_stream()
+                except (BrokenPipeError, ConnectionResetError):
+                    print("질의 스트림 연결 끊김")
+            return
         if urlparse(self.path).path != "/internal/documents":
             return self._send(404, {"error": "NOT_FOUND"})
         if not self._authorized():
