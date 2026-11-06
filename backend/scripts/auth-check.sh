@@ -7,6 +7,7 @@ PW=${TEST_PASSWORD:-Test1234!}
 ADMIN_EMAIL=$(grep '^ADMIN_EMAIL=' .env | cut -d= -f2- | tr -d '\r')
 ADMIN_PW=$(grep '^ADMIN_PASSWORD=' .env | cut -d= -f2- | tr -d '\r')
 J="Content-Type: application/json"
+FAKE_TOKEN="not-a-real-token"   # 위조 토큰 테스트용 가짜 값
 
 check() { # 이름 기대값 실제응답(본문\n코드)
   local body code got
@@ -22,7 +23,7 @@ req -X POST $B/api/auth/signup -H "$J" -d "{\"email\":\"$EMAIL\",\"password\":\"
 
 check "health 공개"                    200 "$(req $B/actuator/health)"
 check "토큰 없이 인증 API"             401 "$(req $B/api/chats)"
-check "위조 토큰"                      401 "$(req $B/api/chats -H 'Authorization: Bearer abc.def.ghi')"
+check "위조 토큰"                      401 "$(req $B/api/chats -H "Authorization: Bearer $FAKE_TOKEN")"
 
 LOGIN=$(curl -s -X POST $B/api/auth/login -H "$J" -d "{\"email\":\"$EMAIL\",\"password\":\"$PW\"}")
 AT=$(field accessToken "$LOGIN"); RT=$(field refreshToken "$LOGIN")
