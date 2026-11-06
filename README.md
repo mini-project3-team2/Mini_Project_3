@@ -122,11 +122,13 @@
 | 구분 | 개발·테스트 (로컬) | 배포 (EC2 / K8s) |
 |---|---|---|
 | LLM | **Groq** | **OpenAI** |
-| 임베딩 | **Ollama `bge-m3`** (1024차원) | **OpenAI `text-embedding-3-small`** (1536차원) |
-| Key | `GROQ_API_KEY` | `OPENAI_API_KEY` |
+| 임베딩 | **OpenAI `text-embedding-3-small`** (1536차원) | **OpenAI `text-embedding-3-small`** (1536차원) |
+| Key | `GROQ_API_KEY` + `OPENAI_API_KEY`(임베딩) | `OPENAI_API_KEY` |
 
+- **임베딩은 모든 환경에서 `text-embedding-3-small` 하나만 씁니다.** (팀 회의 결정 · Ollama 미사용)
 - **코드 수정 없이 환경변수로만 전환**: `LLM_PROVIDER` · `LLM_MODEL` · `EMBEDDING_PROVIDER` · `EMBEDDING_MODEL`
-- 차원이 달라 **개발 인덱스를 배포로 복사하지 않고 다시 적재(인덱싱)** 합니다. 경로에 모델명을 넣습니다. (예: `faiss_index/docs_bge-m3/`)
+- 저장 경로·컬렉션 이름에 모델명을 넣습니다. (예: `study_materials_text-embedding-3-small`) 모델을 바꾸면 다시 적재합니다.
+- 개발 중에도 적재·질문 텍스트가 OpenAI API 로 전송되고 `OPENAI_API_KEY` 사용량이 차감됩니다.
 - OpenAI 모델로 통합 테스트합니다. (OutputParser·Tool 호출 결과가 모델마다 다를 수 있음)
 
 <details>
@@ -178,7 +180,7 @@ uv self update 0.12.23
 |---|---|
 | Backend | JDK 17 - Temurin <https://adoptium.net/> |
 | Frontend | Node.js 24 LTS - <https://nodejs.org/> (또는 nvm-windows / fnm) |
-| AI | Ollama <https://ollama.com/download> → `ollama pull bge-m3` |
+| AI | 추가 설치 없음 (임베딩은 OpenAI API · `.env` 에 `OPENAI_API_KEY` 필요) |
 | 보안 점검 (Day 4) | Burp Suite |
 | DevOps | Docker Hub 계정·Access Token, AWS 계정·EC2 키페어 |
 
@@ -190,7 +192,6 @@ docker compose version     # v2 이상 (docker-compose v1 사용 금지)
 uv --version               # 0.12.23
 java -version              # Backend: 17
 node -v                    # Frontend: v24.x
-ollama list                # AI: bge-m3 표시
 ```
 
 ### 3.2 저장소 최초 세팅 (1회)
@@ -223,7 +224,7 @@ cp .env.example .env
 | `JWT_SECRET`<br>`AI_INTERNAL_TOKEN` | **각자** 랜덤 생성 | `openssl rand -hex 32` |
 | `GROQ_API_KEY` | **강사 제공** (팀 DM 으로만 공유) | |
 | `LLM_MODEL` | **AI 담당이 정해 공지** (Groq 모델명) | |
-| `OPENAI_API_KEY` | 통합 테스트부터 (강사 제공) | |
+| `OPENAI_API_KEY` | **강사 제공** (팀 DM 으로만 공유) - 임베딩용으로 **AI 모듈 개발부터** 필요 | |
 | `TAVILY_API_KEY`, `LANGSMITH_*` | 사용할 때만 | |
 | 나머지 | `.env.example` 기본값 그대로 | |
 
@@ -368,7 +369,7 @@ git checkout -b feature/<기능>
    cd ai-module
    uv init --app .
    uv add fastapi "uvicorn[standard]" python-dotenv langchain langchain-community langchain-text-splitters
-   uv add langchain-groq langchain-ollama langchain-openai   # 개발(Groq·Ollama) / 배포(OpenAI)
+   uv add langchain-groq langchain-openai   # LLM 개발(Groq) / 배포(OpenAI) · 임베딩 공통(OpenAI)
    uv add faiss-cpu               # 또는 langchain-chroma
    uv add pypdf docx2txt          # 업로드 문서 로더 (지원 형식은 팀 확정)
    uv add langchain-tavily        # 웹 검색 Tool (필요 시)
@@ -379,8 +380,8 @@ git checkout -b feature/<기능>
    - 헬스체크 `GET /health` 필수 (Compose·Dockerfile HEALTHCHECK)
 3. `.env`: `load_dotenv()` 가 상위 폴더의 루트 `.env` 를 찾습니다.
 4. **모델 전환** (가이드 3.4): `LLM_PROVIDER`/`LLM_MODEL`, `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL` 로 분기. **모델명·공급자·키를 코드에 쓰지 않습니다.**
-   - 인덱스 경로에 모델명: `faiss_index/docs_bge-m3/`, `faiss_index/docs_text-embedding-3-small/`
-   - 배포(EC2)는 OpenAI 임베딩이므로 EC2 에 Ollama 불필요
+   - 임베딩은 개발·배포 모두 `text-embedding-3-small` (Ollama 불필요)
+   - 인덱스 경로·컬렉션에 모델명: `study_materials_text-embedding-3-small`
 5. **웹 검색** (가이드 3.5, 필요 시): `TavilySearch(max_results=3)` 를 RAG 검색 Tool 과 함께 `create_agent(tools=[...])` 에 등록, 시스템 프롬프트에 "내부 문서 우선, 없으면 웹 검색 + 출처(URL) 표시"
    - 웹 검색 결과는 외부 입력 (간접 Prompt Injection 주의)
    - Tool 호출은 **Groq·OpenAI 둘 다** 테스트
@@ -591,7 +592,7 @@ Issue 템플릿 항목 (`.github/ISSUE_TEMPLATE/security.md`)
   | React 18 / Redux | 19.3.x / **Zustand** |
   | Python 3.11 / `python:3.11-slim` | 3.12 / `python:3.12-slim` |
   | `node:20-alpine` | `node:24-alpine` |
-  | 벡터 차원 1536 (단일) | 개발 1024 / 배포 1536 |
+  | 벡터 차원 1536 (단일) | 1536 (개발·배포 공통 `text-embedding-3-small`) |
   | AI 환경변수 | 가이드 3.4 변수명 |
 
 **제출물 (11/13 금)**
@@ -618,6 +619,6 @@ Issue 템플릿 항목 (`.github/ISSUE_TEMPLATE/security.md`)
 | Spring 기동 시 `${JWT_SECRET}` 을 못 찾음 | `application.yml` 의 `spring.config.import` 누락 또는 `.env` 위치가 최상위가 아님 |
 | Docker 빌드 시 `./mvnw: Permission denied` | `git update-index --add --chmod=+x backend/mvnw` 후 커밋 |
 | Vite 생성 후 `.dockerignore` 등이 사라짐 | `Remove existing files` 를 선택함 → `git checkout -- frontend/` 로 복구 후 `Ignore files` 로 다시 생성 |
-| AI 모듈(Docker)이 Ollama 에 연결 못 함 | `OLLAMA_BASE_URL=http://host.docker.internal:11434` (Linux 는 Compose 에 `extra_hosts: ["host.docker.internal:host-gateway"]`) |
+| 적재·질문이 `EMBEDDING_ERROR` 로 실패 | `OPENAI_API_KEY` 누락·오류(401) 또는 호출 한도 초과(429) → `.env` 키 확인 후 잠시 뒤 재시도 |
 | 임베딩 차원 불일치 오류 | 다른 모델로 만든 인덱스를 사용 중 → 인덱스 경로에 모델명을 넣고 다시 적재 |
 | 복사해 온 폴더의 파일이 커밋되지 않음 | 안에 `.git` 폴더가 있음 (중첩 저장소) → `.git` 삭제 후 다시 `git add` |
