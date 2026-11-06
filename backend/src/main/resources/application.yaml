@@ -32,6 +32,14 @@ auth:
     max-attempts: ${LOGIN_MAX_ATTEMPTS:5}    # 연속 실패 허용 횟수
     lock-minutes: ${LOGIN_LOCK_MINUTES:15}   # 잠금 시간 (시연 시 환경 변수로 단축 가능)
 
+ai:
+  service-url: ${AI_SERVICE_URL:http://localhost:8000}
+  internal-token: ${AI_INTERNAL_TOKEN:}
+  timeout:
+    ingest-seconds: 120   # 적재 (nginx 150초 · 화면 180초보다 짧게)
+    delete-seconds: 10    # 청크 삭제
+    stream-seconds: 60    # 답변 스트리밍
+
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
 

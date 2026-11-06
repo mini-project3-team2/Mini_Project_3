@@ -37,6 +37,11 @@ public class AuditLogger {
         log.warn("REFRESH_FAILURE ip={}", ip);
     }
 
+    /** 남의 자료 · 기록에 접근 시도 (IDOR) */
+    public void ownershipDenied(String email, String target) {
+        log.warn("OWNERSHIP_DENIED email={} target={}", mask(email), target);
+    }
+
     public void accessDenied(String target, String ip) {
         log.warn("ACCESS_DENIED target={} ip={}", target, ip);
     }
