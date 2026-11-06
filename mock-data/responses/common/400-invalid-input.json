@@ -1,0 +1,6 @@
+{
+  "success": false,
+  "data": null,
+  "message": "입력값을 확인해 주세요",
+  "code": "INVALID_INPUT"
+}

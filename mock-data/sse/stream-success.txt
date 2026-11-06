@@ -1,0 +1,24 @@
+event: sources
+data: [{"documentId":1,"documentName":"LangChain_RAG_실습.pdf","page":12},{"documentId":1,"documentName":"LangChain_RAG_실습.pdf","page":14}]
+
+event: token
+data: {"text":"similarity는 "}
+
+event: token
+data: {"text":"질문과 가장 비슷한 문서를 "}
+
+event: token
+data: {"text":"점수 순서대로 k개 가져오는 방식이에요. "}
+
+event: token
+data: {"text":"mmr은 비슷한 정도에 더해 "}
+
+event: token
+data: {"text":"이미 고른 문서와 겹치지 않는 정도도 "}
+
+event: token
+data: {"text":"함께 따져서 다양한 내용을 골고루 가져와요."}
+
+event: done
+data: {"chatId":32}
+

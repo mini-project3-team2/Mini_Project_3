@@ -1,0 +1,6 @@
+{
+  "success": false,
+  "data": null,
+  "message": "일시적인 오류가 발생했습니다",
+  "code": "INTERNAL_SERVER_ERROR"
+}

@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "data": {
+    "accessToken": "mock-access-token-1",
+    "refreshToken": "mock-refresh-token-1",
+    "expiresIn": 900,
+    "member": {
+      "uuid": "11111111-1111-4111-8111-111111111111",
+      "email": "student@test.com"
+    }
+  },
+  "message": ""
+}
