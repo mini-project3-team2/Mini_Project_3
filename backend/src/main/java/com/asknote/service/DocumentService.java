@@ -1,6 +1,7 @@
 package com.asknote.service;
 
 import com.asknote.client.AiDocumentClient;
+import com.asknote.common.audit.AuditLogger;
 import com.asknote.common.auth.CurrentMemberProvider;
 import com.asknote.common.exception.BusinessException;
 import com.asknote.common.exception.ErrorCode;
@@ -30,6 +31,7 @@ public class DocumentService {
     private final CurrentMemberProvider currentMemberProvider;
     private final PdfValidator pdfValidator;
     private final AiDocumentClient aiDocumentClient;
+    private final AuditLogger auditLogger;
 
     /** 업로드: 행 저장(INDEXING) → AI 적재 → READY. 실패하면 청크 삭제 → 행 삭제 후 오류 (원본은 저장하지 않음) */
     public DocumentResponse upload(MultipartFile file) {
@@ -54,12 +56,16 @@ public class DocumentService {
     /**
      * 삭제: AI 청크 삭제 → DB 행 삭제
      * 청크 삭제가 실패해도 행은 삭제한다 — 질문은 DB 의 READY 문서 id 로만 검색하므로 남은 청크는 답변에 쓰이지 않음
-     * TODO(IDOR 조치): 현재는 소유자 확인이 없음 → 취약점 재현 캡처 후 fix(security) 커밋에서 403 추가
+     * IDOR 조치: 로그인 회원의 자료가 아니면 403 (요청의 id 만 믿지 않고 소유자를 DB 에서 확인) + 감사 로그
      */
     public void delete(Long documentId) {
-        currentMemberProvider.getCurrentMember();
+        Member member = currentMemberProvider.getCurrentMember();
         Document document = documentRepository.findWithMemberById(documentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND));
+        if (!document.isOwnedBy(member.getId())) {
+            auditLogger.ownershipDenied(member.getEmail(), "DELETE /api/documents/" + documentId);
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
 
         aiDocumentClient.deleteChunks(document.getId(), document.getMember().getUuid());
         documentRepository.delete(document);
