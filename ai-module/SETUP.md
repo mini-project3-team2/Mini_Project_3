@@ -122,7 +122,7 @@ router = APIRouter(dependencies=[Depends(require_internal_token)])
 - `app.state.resources`는 앱 수명주기마다 하나 생성됩니다. `src/core/resources.py`의 `get_embeddings`와 `get_collection`을 FastAPI `Depends`로 주입하거나, 앱의 리소스 관리자에서 `await resources.embeddings()` / `await resources.collection()`으로 가져옵니다.
 - 첫 사용 시 생성하고 재사용합니다. 동시 초기화는 잠금으로 한 번만 수행하며, 앱 종료 시 생성된 클라이언트를 정리합니다. `/health`만 호출하면 API 키 검증·Chroma 파일 생성은 일어나지 않습니다.
 - `src/core/embeddings.py`는 설정의 모델과 키를 명시적으로 사용합니다. 기본 1536차원을 유지하고, 요청 타임아웃 30초·SDK 재시도 0회·배치 크기 64로 구성합니다. 이 타임아웃은 전체 적재 시간 제한이 아니며, 전체 예산과 재시도는 적재 단계에서 제어해야 합니다.
-- 텍스트를 그대로 전달하도록 자동 토큰 분할을 끕니다. 호출 전 입력 길이 제한과 반환 벡터의 개수·차원 검증은 이후 적재·질의 구현에서 수행해야 합니다. 실제 API 키 유효성·임베딩 결과는 아직 검증하지 않았습니다.
+- 텍스트를 그대로 전달하도록 자동 토큰 분할을 끕니다. 적재 경로의 입력 길이·반환 벡터 검증은 C3에서 구현했습니다. 질의 경로도 별도로 검증해야 합니다. 기존 합성 문장 실제 API 연결 결과는 `validation/README.md`, PDF 적재의 오프라인 검증은 아래 C5 기록으로 구분합니다.
 - Chroma 컬렉션 이름은 `settings.collection_name` (`study_materials_text-embedding-3-small`)입니다. 기본 저장 경로는 `ai-module/chroma_db`입니다. 선택 변수 `CHROMA_PERSIST_DIRECTORY`로 변경할 수 있으며, 상대 경로는 `ai-module` 기준입니다. Compose에서 변경할 때는 AI 서비스의 `environment`와 볼륨 마운트 경로를 함께 맞춥니다.
 - Chroma에는 `embeddings` / `query_embeddings`를 명시적으로 전달해야 합니다. 설치된 버전은 `embedding_function=None`만으로 기본 모델 사용이 차단되지 않아, `ExplicitVectorsOnly` 함수를 등록해 자동 임베딩을 거부합니다. Chroma 클라이언트는 이 모듈을 통해 생성해야 합니다. 익명 사용 통계는 비활성화합니다.
 - 임시 Chroma 저장소에 합성 벡터를 넣고 재개방한 검증은 실제 OpenAI 임베딩·검색 품질 검증과 구분합니다. 실데이터 저장소를 테스트에 사용하지 않습니다.
@@ -136,7 +136,7 @@ router = APIRouter(dependencies=[Depends(require_internal_token)])
 - `PyPDFLoader`로 페이지별 추출 후 800자·최대 100자 오버랩으로 분할합니다. 분할 경계에 따라 실제 오버랩은 작을 수 있습니다. 빈 페이지는 건너뛰되 PDF 페이지 번호는 1부터 원래 위치를 유지합니다.
 - 메타데이터는 `owner_uuid`, `document_id`, `document_name`, `page`만 남기며 PDF 작성자와 로컬 파일 경로는 제외합니다.
 - `PdfProcessingError`는 고정 `code`와 `status_code`를 제공합니다. 알려진 PDF 파싱 오류·텍스트 없음은 422, 입력 파일 오류는 400/413입니다. 디스크·스트림 오류나 예상하지 못한 버그를 422로 감추지 않습니다. HTTP 매핑은 C4 적재 라우터에 연결했습니다.
-- 동기 함수는 작업 스레드에서 실행해야 합니다. 요청 취소만으로 스레드가 끝나지 않으므로 호출자는 작업이 끝날 때까지 입력 스트림을 유지해야 합니다. `prepare_pdf` 내부에서 임시 파일 생성·추출·정리를 함께 수행합니다. 비동기 취소 연동은 아직 검증하지 않았습니다.
+- 동기 함수는 작업 스레드에서 실행해야 합니다. 요청 취소만으로 스레드가 끝나지 않으므로 호출자는 작업이 끝날 때까지 입력 스트림을 유지해야 합니다. `prepare_pdf` 내부에서 임시 파일 생성·추출·정리를 함께 수행합니다. C4에서 반복 task 취소에도 준비 작업 종료를 기다리는 것을 검증했습니다. 실제 브라우저 연결 종료·Backend 타임아웃과의 연동은 별도 검증 대상입니다.
 - 파일 바이트 제한은 압축 해제 후 메모리·페이지 수·CPU 시간의 상한이 아닙니다. 파서 프로세스 격리 및 하드 시간 제한은 구현하지 않았습니다. 이미지 OCR은 지원하지 않습니다.
 
 검증: `uv run --locked python -m unittest discover -s tests -p test_pdf.py -v`. 합성 PDF로 페이지·청크·오버랩, 파일 크기 경계, 손상·암호화·전체 빈 텍스트, 임시 파일 정리와 내부 오류 구분을 확인합니다. API 키와 외부 호출을 사용하지 않습니다.
@@ -151,7 +151,7 @@ router = APIRouter(dependencies=[Depends(require_internal_token)])
 - 공급자 입력 한도는 [OpenAI 임베딩 API 명세](https://developers.openai.com/api/reference/resources/embeddings/methods/create)의 입력당 8,192토큰·요청 합계 300,000토큰을 확인했습니다(2026-11-07). 코드는 입력 상한을 보수적으로 8,191로 둡니다.
 - 반환 벡터의 개수·1536차원·숫자 타입(bool 제외)·유한값·비영벡터를 검증합니다. 모든 배치가 성공해야 결과를 반환하며 실패 시 부분 결과는 반환하지 않습니다. 이미 처리된 공급자 요청의 사용량이 취소되는 것은 아닙니다.
 - 공급자 오류와 잘못된 벡터는 `EMBEDDING_ERROR`, 전체 예산 소진은 `INGESTION_TIMEOUT`입니다. 원문 오류를 메시지에 넣지 않습니다. 호출자 취소는 그대로 전파합니다.
-- 기본 예산은 100초, 개별 호출 제한은 최대 30초입니다. 이후 적재 서비스에서는 PDF 처리 시간을 뺀 **남은 예산**을 넘겨야 합니다. 현재 이 함수의 제한을 전체 HTTP 적재 제한으로 해석하지 않습니다.
+- 기본 예산은 100초, 개별 호출 제한은 최대 30초입니다. C4 적재 경로는 PDF 처리 시간을 뺀 **남은 예산**을 넘깁니다. 이 함수의 제한을 전체 HTTP 적재의 하드 제한으로 해석하지 않습니다.
 
 오프라인 검증: `uv run --locked python -m unittest discover -s tests -p test_embedding.py -v`. 모의 클라이언트로 배치 경계·벡터 오류·시간 초과·취소 및 합성 PDF에서 벡터까지를 검증합니다. 실제 모델 API 호출은 수행하지 않았습니다.
 
@@ -178,8 +178,10 @@ PDF 처리는 작업 스레드에서 수행하며 취소 시 작업이 끝날 �
 
 `uv run --locked python -m unittest discover -s tests -p test_documents.py -v`로 인증·입력 경계·중복·오류 매핑과 HTTP → 합성 PDF → 모의 임베딩 → 임시 Chroma 흐름을 확인합니다. 실제 모델 API와 Backend 서버는 호출하지 않습니다.
 
-## 13. 다음 단계
+## 13. C5 최종 검증과 다음 단계
 
 실제 임베딩·Groq·OpenAI 연결 테스트의 실행 방법과 기존 성공 기록은 [실제 API 연결 검증](validation/README.md)을 참고하세요. 기본 단위 테스트는 외부 API를 호출하지 않습니다.
 
-다음은 C5 최종 회귀 검증·정리 및 D단계 DELETE API와 적재·삭제 경합입니다. 실제 API 성능 검증도 남아 있습니다. C4의 모의 임베딩·임시 Chroma 성공은 실제 OpenAI 적재나 Backend E2E 검증을 뜻하지 않습니다.
+C5에서 잠금 의존성·63개 회귀 테스트·실제 로컬 Uvicorn HTTP·Mock 재생성을 확인했습니다. [C단계 최종 검증 기록](validation/2026-11-07/c-stage-verification.md)에 완료 근거와 한계를 정리했습니다. HTTP 검증은 `uv run --locked --offline python scripts/smoke_ingestion_offline.py`로 재현할 수 있습니다(로컬 임시 포트·합성 PDF·모의 임베딩·임시 Chroma만 사용).
+
+다음은 D단계 DELETE API와 적재·삭제 경합입니다. 실제 API 성능 검증은 E단계에 남아 있습니다. C단계 완료는 실제 OpenAI PDF 적재나 Backend E2E 검증 완료를 뜻하지 않습니다.
