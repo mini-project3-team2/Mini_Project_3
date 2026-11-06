@@ -15,7 +15,8 @@ import com.asknote.security.JwtTokenProvider;
 import com.asknote.security.RefreshTokenUtil;
 import java.time.LocalDateTime;
 import java.util.Locale;
-import java.util.Optional;
+import java.time.temporal.ChronoUnit;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,6 +36,12 @@ public class AuthService {
     @Value("${jwt.refresh-expiration}")
     private long refreshExpirationMillis;
 
+    @Value("${auth.login.max-attempts}")
+    private int maxAttempts;
+
+    @Value("${auth.login.lock-minutes}")
+    private long lockMinutes;
+
     @Transactional
     public MemberResponse signup(SignupRequest request, String ip) {
         String email = normalize(request.email());
@@ -49,19 +56,45 @@ public class AuthService {
 
     /**
      * 로그인 — 이메일이 없든 비밀번호가 틀리든 같은 401 (이메일 존재 여부를 알려주지 않음)
-     * TODO(Brute Force 조치): 현재는 실패 횟수 제한이 없음 → 취약점 재현 캡처 후 fix(security) 커밋에서 잠금 추가
+     * Brute Force 조치: 연속 실패 maxAttempts 회 → lockMinutes 분 잠금 (423, 잠금 중에는 올바른 비밀번호도 거부)
+     * 실패 횟수는 예외를 던져도 저장돼야 하므로 BusinessException 에서 롤백하지 않는다
      */
-    @Transactional
+    @Transactional(noRollbackFor = BusinessException.class)
     public TokenResponse login(LoginRequest request, String ip) {
         String email = normalize(request.email());
-        Optional<Member> found = memberRepository.findByEmail(email)
-                .filter(m -> passwordEncoder.matches(request.password(), m.getPassword()));
-        if (found.isEmpty()) {
+        Member member = memberRepository.findByEmailForUpdate(email).orElse(null);
+        if (member == null) {
             auditLogger.loginFailure(email, ip);
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
+
+        LocalDateTime now = LocalDateTime.now();
+        if (member.isLocked(now)) {
+            auditLogger.accountLocked(email, ip);
+            throw locked(member);
+        }
+        if (member.getLockedUntil() != null) {
+            member.resetLoginFailure(); // 잠금 시간이 지났으면 횟수를 처음부터 다시 센다
+        }
+
+        if (!passwordEncoder.matches(request.password(), member.getPassword())) {
+            member.recordLoginFailure(maxAttempts, now.plusMinutes(lockMinutes));
+            if (member.isLocked(now)) {
+                auditLogger.accountLocked(email, ip);
+                throw locked(member);
+            }
+            auditLogger.loginFailure(email, ip);
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        member.resetLoginFailure();
         auditLogger.loginSuccess(email, ip);
-        return issueTokens(found.get());
+        return issueTokens(member);
+    }
+
+    private BusinessException locked(Member member) {
+        return new BusinessException(ErrorCode.ACCOUNT_LOCKED,
+                Map.of("lockedUntil", member.getLockedUntil().truncatedTo(ChronoUnit.SECONDS)));
     }
 
     /** 재발급(회전) — 기존 Refresh 행 삭제 → 새 Access · Refresh 발급 */
