@@ -1,4 +1,4 @@
-# MiniProject3 - 2조 - AI개인학습도우미
+# MiniProject3 - 2조 - 수업 자료 기반 AI 학습 도우미
 
 > React + Spring Boot + FastAPI(LangChain RAG) 기반 AI 서비스
 > 3차 미니프로젝트 · 2026.11.05 ~ 11.13 (산출물 제출·발표 **11/13 금**)
@@ -26,14 +26,14 @@
 
 | 이름 | 역할 | 담당 |
 |---|---|---|
-| 강찬식 |  |  |
-| 김지우 |  |  |
-| 서다영 |  |  |
-| 윤수연 |  |  |
-| 전승호 |  |  |
-| 정성재 |  |  |
+| 강찬식 | LLM |  |
+| 김지우 | LLM |  |
+| 서다영 | DevOps |  |
+| 윤수연 | Backend |  |
+| 전승호 | Frontend |  |
+| 정성재 | Backend |  |
 
-> 역할 예: Team Lead / Backend / Frontend / AI / DevOps
+> 역할 예: Team Lead / Backend / Frontend / LLM / DevOps
 
 ---
 
