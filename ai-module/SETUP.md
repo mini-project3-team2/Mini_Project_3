@@ -129,4 +129,6 @@ router = APIRouter(dependencies=[Depends(require_internal_token)])
 
 ## 9. 다음 단계
 
+실제 임베딩·Groq·OpenAI 연결 테스트의 실행 방법과 기존 성공 기록은 [실제 API 연결 검증](validation/README.md)을 참고하세요. 기본 단위 테스트는 외부 API를 호출하지 않습니다.
+
 PDF 적재 파이프라인을 구현합니다. 파일·입력 검증, 페이지별 추출·분할, 반환 벡터 검증, 메타데이터 저장, API 인증 연결이 필요합니다. 삭제·실패 복구·동시 요청과 실제 API 성능 검증도 아직 남아 있습니다.
