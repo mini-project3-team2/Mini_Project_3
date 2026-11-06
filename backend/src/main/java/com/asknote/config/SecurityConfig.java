@@ -4,6 +4,7 @@ import com.asknote.security.JsonAccessDeniedHandler;
 import com.asknote.security.JsonAuthenticationEntryPoint;
 import com.asknote.security.JwtAuthenticationFilter;
 import com.asknote.security.JwtTokenProvider;
+import jakarta.servlet.DispatcherType;
 import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +51,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
                         .requestMatchers("/error").permitAll()
+                        // SSE 응답 중 내부 재디스패치(ASYNC) · 오류 페이지(ERROR) — 최초 요청에서 이미 인증 · 인가됨
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(authenticationEntryPoint)
