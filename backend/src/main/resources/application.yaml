@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: asknote
+  config:
+    # Spring 은 .env 를 자동으로 읽지 않으므로 import (파일이 없으면 무시 → Docker 영향 없음)
+    import: "optional:file:.env[.properties],optional:file:../.env[.properties]"
+  datasource:
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT}/${MARIADB_DATABASE}
+    username: ${MARIADB_USER}        # root 가 아닌 앱 전용 계정
+    password: ${MARIADB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate             # 스키마는 Flyway 로만 변경 (update 금지)
+    open-in-view: false              # 응답(특히 SSE) 중에 DB 연결을 붙잡지 않음
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-expiration: ${JWT_ACCESS_EXPIRATION}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${ACTUATOR_EXPOSURE:health,info}   # Actuator 노출 최소화
+  endpoint:
+    health:
+      show-details: never            # health 는 UP / DOWN 만
