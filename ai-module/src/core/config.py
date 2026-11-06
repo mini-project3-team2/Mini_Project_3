@@ -8,7 +8,8 @@ from pathlib import Path
 from dotenv import dotenv_values
 
 
-ROOT_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+AI_MODULE_DIR = Path(__file__).resolve().parents[2]
+ROOT_ENV_FILE = AI_MODULE_DIR.parent / ".env"
 
 
 class ConfigurationError(ValueError):
@@ -24,6 +25,11 @@ class Settings:
     groq_api_key: str = field(default="", repr=False)
     llm_provider: str = ""
     llm_model: str = ""
+    chroma_persist_directory: Path = AI_MODULE_DIR / "chroma_db"
+
+    @property
+    def collection_name(self) -> str:
+        return f"study_materials_{self.embedding_model}"
 
     def require_embedding_api_key(self) -> str:
         """Validate presence at client creation time; this does not verify the key."""
@@ -70,6 +76,11 @@ def load_settings(
     if model != "text-embedding-3-small":
         raise ConfigurationError("EMBEDDING_MODEL must be text-embedding-3-small")
 
+    directory = read("CHROMA_PERSIST_DIRECTORY")
+    chroma_path = Path(directory) if directory else Path("chroma_db")
+    if not chroma_path.is_absolute():
+        chroma_path = AI_MODULE_DIR / chroma_path
+
     return Settings(
         ai_internal_token=token,
         embedding_provider=provider,
@@ -78,4 +89,5 @@ def load_settings(
         groq_api_key=read("GROQ_API_KEY"),
         llm_provider=read("LLM_PROVIDER"),
         llm_model=read("LLM_MODEL"),
+        chroma_persist_directory=chroma_path.resolve(),
     )

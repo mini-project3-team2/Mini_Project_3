@@ -1,6 +1,6 @@
 # AI 모듈 개발 환경 준비
 
-Python 프로젝트·공통 설정 로더·FastAPI 앱·`/health`·내부 인증 의존성이 구현돼 있습니다. 적재·삭제 API는 아직 구현하지 않았습니다.
+Python 프로젝트·공통 설정 로더·FastAPI 앱·`/health`·내부 인증 의존성·공통 클라이언트 관리가 구현돼 있습니다. 적재·삭제 API는 아직 구현하지 않았습니다.
 
 ## 1. 실행 환경
 
@@ -117,6 +117,16 @@ router = APIRouter(dependencies=[Depends(require_internal_token)])
 
 테스트용 라우터에서 POST·DELETE 인증과 거부 시 핸들러 미실행을 확인합니다. 테스트 라우터는 서비스에 등록되지 않습니다. 실제 적재·삭제·질의 라우터를 구현할 때 위 의존성을 연결해야 합니다.
 
-## 8. 다음 단계
+## 8. 공통 임베딩과 Chroma 클라이언트
 
-공통 임베딩 생성 함수와 임베딩·Chroma 클라이언트 수명주기를 구현하고 검증합니다. 적재·삭제·질의 API는 아직 제공하지 않습니다.
+- `app.state.resources`는 앱 수명주기마다 하나 생성됩니다. `src/core/resources.py`의 `get_embeddings`와 `get_collection`을 FastAPI `Depends`로 주입하거나, 앱의 리소스 관리자에서 `await resources.embeddings()` / `await resources.collection()`으로 가져옵니다.
+- 첫 사용 시 생성하고 재사용합니다. 동시 초기화는 잠금으로 한 번만 수행하며, 앱 종료 시 생성된 클라이언트를 정리합니다. `/health`만 호출하면 API 키 검증·Chroma 파일 생성은 일어나지 않습니다.
+- `src/core/embeddings.py`는 설정의 모델과 키를 명시적으로 사용합니다. 기본 1536차원을 유지하고, 요청 타임아웃 30초·SDK 재시도 0회·배치 크기 64로 구성합니다. 이 타임아웃은 전체 적재 시간 제한이 아니며, 전체 예산과 재시도는 적재 단계에서 제어해야 합니다.
+- 텍스트를 그대로 전달하도록 자동 토큰 분할을 끕니다. 호출 전 입력 길이 제한과 반환 벡터의 개수·차원 검증은 이후 적재·질의 구현에서 수행해야 합니다. 실제 API 키 유효성·임베딩 결과는 아직 검증하지 않았습니다.
+- Chroma 컬렉션 이름은 `settings.collection_name` (`study_materials_text-embedding-3-small`)입니다. 기본 저장 경로는 `ai-module/chroma_db`입니다. 선택 변수 `CHROMA_PERSIST_DIRECTORY`로 변경할 수 있으며, 상대 경로는 `ai-module` 기준입니다. Compose에서 변경할 때는 AI 서비스의 `environment`와 볼륨 마운트 경로를 함께 맞춥니다.
+- Chroma에는 `embeddings` / `query_embeddings`를 명시적으로 전달해야 합니다. 설치된 버전은 `embedding_function=None`만으로 기본 모델 사용이 차단되지 않아, `ExplicitVectorsOnly` 함수를 등록해 자동 임베딩을 거부합니다. Chroma 클라이언트는 이 모듈을 통해 생성해야 합니다. 익명 사용 통계는 비활성화합니다.
+- 임시 Chroma 저장소에 합성 벡터를 넣고 재개방한 검증은 실제 OpenAI 임베딩·검색 품질 검증과 구분합니다. 실데이터 저장소를 테스트에 사용하지 않습니다.
+
+## 9. 다음 단계
+
+PDF 적재 파이프라인을 구현합니다. 파일·입력 검증, 페이지별 추출·분할, 반환 벡터 검증, 메타데이터 저장, API 인증 연결이 필요합니다. 삭제·실패 복구·동시 요청과 실제 API 성능 검증도 아직 남아 있습니다.

@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
 
@@ -18,13 +18,17 @@ class AppTests(unittest.TestCase):
     def test_health_is_public_and_works_without_api_keys(self):
         settings = load_settings(env_file=None, environ=self.values)
         application = create_app(lambda: settings)
-        with TestClient(application) as client:
+        with patch("src.core.resources.open_embeddings") as embedding_factory, \
+             patch("src.core.resources.open_collection") as collection_factory, \
+             TestClient(application) as client:
             for headers in ({}, {"X-Internal-Token": "irrelevant"}):
                 response = client.get("/health", headers=headers)
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.json(), {"status": "ok"})
                 self.assertEqual(response.headers["content-type"], "application/json")
                 self.assertNotIn(settings.ai_internal_token, response.text)
+            embedding_factory.assert_not_called()
+            collection_factory.assert_not_called()
 
     def test_settings_loaded_at_startup_once_and_released_on_shutdown(self):
         settings = load_settings(env_file=None, environ=self.values)
@@ -37,6 +41,7 @@ class AppTests(unittest.TestCase):
             client.get("/health")
             loader.assert_called_once_with()
         self.assertFalse(hasattr(application.state, "settings"))
+        self.assertFalse(hasattr(application.state, "resources"))
 
     def test_invalid_configuration_prevents_startup(self):
         for overrides in ({"AI_INTERNAL_TOKEN": ""}, {"EMBEDDING_MODEL": "unsupported"}):

@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from src.api.routers.health import router as health_router
 from src.core.config import Settings, load_settings
+from src.core.resources import AppResources
 
 
 def create_app(settings_loader: Callable[[], Settings] = load_settings) -> FastAPI:
@@ -15,10 +16,15 @@ def create_app(settings_loader: Callable[[], Settings] = load_settings) -> FastA
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         application.state.settings = settings_loader()
+        application.state.resources = AppResources(application.state.settings)
         try:
             yield
         finally:
-            del application.state.settings
+            try:
+                await application.state.resources.aclose()
+            finally:
+                del application.state.resources
+                del application.state.settings
 
     application = FastAPI(title="AskNote AI", lifespan=lifespan)
     application.include_router(health_router)
