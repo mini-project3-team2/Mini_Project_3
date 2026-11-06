@@ -12,12 +12,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * [임시 · local 프로필 전용] 로컬 테스트 데이터 (mock-data 와 같은 계정)
+ * [local 프로필 전용] 로컬 테스트 데이터 (mock-data 와 같은 계정)
  * - student@test.com: 자료 3개(READY 2 · INDEXING 1), 질문 기록 12개 (페이징 확인용)
  * - other@test.com : 자료 1개, 기록 1개 (남의 자료 · 기록 403 확인용)
  * 이미 student@test.com 이 있으면 넣지 않는다. 비밀번호는 mock-data/README 참고
@@ -34,6 +34,7 @@ public class LocalDataInitializer implements ApplicationRunner {
     private final MemberRepository memberRepository;
     private final DocumentRepository documentRepository;
     private final ChatHistoryRepository chatHistoryRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
@@ -41,7 +42,7 @@ public class LocalDataInitializer implements ApplicationRunner {
         if (memberRepository.existsByEmail("student@test.com")) {
             return;
         }
-        String password = new BCryptPasswordEncoder().encode("Test1234!");
+        String password = passwordEncoder.encode("Test1234!");
 
         Member student = memberRepository.save(Member.createMember("student@test.com", password));
         Member other = memberRepository.save(Member.createMember("other@test.com", password));
