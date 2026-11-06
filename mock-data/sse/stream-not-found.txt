@@ -1,0 +1,15 @@
+event: sources
+data: [{"documentId":1,"documentName":"LangChain_RAG_실습.pdf","page":27}]
+
+event: token
+data: {"text":"올린 자료에서 "}
+
+event: token
+data: {"text":"관련 내용을 찾지 못했어요. "}
+
+event: token
+data: {"text":"해당 내용이 담긴 자료를 올린 뒤 다시 질문해 주세요."}
+
+event: done
+data: {"chatId":33}
+

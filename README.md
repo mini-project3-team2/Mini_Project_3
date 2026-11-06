@@ -1,4 +1,4 @@
-# MiniProject3 - 2조 - 수업 자료 기반 AI 학습 도우미
+# MiniProject3 - 2조 - AskNote (수업 자료 기반 AI 학습 도우미)
 
 > React + Spring Boot + FastAPI(LangChain RAG) 기반 AI 서비스
 > 3차 미니프로젝트 · 2026.11.05 ~ 11.13 (산출물 제출·발표 **11/13 금**)
@@ -254,7 +254,7 @@ docker compose ps         # database 가 (healthy) 이면 완료
 ### 합류하는 팀원
 
 ```bash
-git checkout main && git pull
+git checkout develop && git pull origin develop
 docker compose up -d                 # DB (Docker Desktop 실행 상태)
 
 # ↓ 내 파트 하나만 실행 (저장소 최상위에서)

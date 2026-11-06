@@ -1,0 +1,6 @@
+{
+  "success": false,
+  "data": null,
+  "message": "자료를 찾을 수 없습니다",
+  "code": "DOCUMENT_NOT_FOUND"
+}

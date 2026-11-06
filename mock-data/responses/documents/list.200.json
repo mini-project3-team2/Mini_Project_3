@@ -1,0 +1,27 @@
+{
+  "success": true,
+  "data": [
+    {
+      "id": 3,
+      "originalFilename": "Docker_Compose_정리.pdf",
+      "fileSize": 1820334,
+      "status": "INDEXING",
+      "createdAt": "2026-11-09T09:58:00"
+    },
+    {
+      "id": 2,
+      "originalFilename": "Spring_Security_JWT.pdf",
+      "fileSize": 3245890,
+      "status": "READY",
+      "createdAt": "2026-11-07T11:20:00"
+    },
+    {
+      "id": 1,
+      "originalFilename": "LangChain_RAG_실습.pdf",
+      "fileSize": 2483112,
+      "status": "READY",
+      "createdAt": "2026-11-07T11:00:00"
+    }
+  ],
+  "message": ""
+}
