@@ -254,7 +254,7 @@ docker compose ps         # database 가 (healthy) 이면 완료
 ### 합류하는 팀원
 
 ```bash
-git checkout main && git pull
+git checkout develop && git pull origin develop
 docker compose up -d                 # DB (Docker Desktop 실행 상태)
 
 # ↓ 내 파트 하나만 실행 (저장소 최상위에서)
