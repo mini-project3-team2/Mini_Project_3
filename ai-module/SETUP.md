@@ -155,8 +155,21 @@ router = APIRouter(dependencies=[Depends(require_internal_token)])
 
 오프라인 검증: `uv run --locked python -m unittest discover -s tests -p test_embedding.py -v`. 모의 클라이언트로 배치 경계·벡터 오류·시간 초과·취소 및 합성 PDF에서 벡터까지를 검증합니다. 실제 모델 API 호출은 수행하지 않았습니다.
 
-## 11. 다음 단계
+## 11. Chroma 저장 (C3)
+
+앱 수명주기당 하나인 `app.state.resources.ingestion`을 사용합니다. `await resources.ingestion.ingest(chunks, embeddings, collection, budget_seconds=남은_초)`에 C2 청크와 공통 클라이언트를 전달하면 임베딩·검증·저장 후 `IngestionResult(document_id, chunk_count)`를 반환합니다. C2 PDF 준비와 이 호출을 잇는 HTTP 라우터는 C4에서 구현합니다.
+
+- 동일 소유자·문서를 처리 중이면 409 `INGESTION_IN_PROGRESS`, 기존 청크가 있으면 임베딩 전에 409 `DOCUMENT_ALREADY_EXISTS`로 거부합니다. 문서 처리 중 잠금을 유지하고 `upsert`나 선삭제는 하지 않습니다.
+- UUID를 표준 소문자로 정규화하고, 한 요청에 서로 다른 소유자·문서 ID·파일명이 섞인 청크를 거부합니다. 청크 ID는 `owner_uuid:document_id:0부터순번`입니다.
+- `add`에 원문·명시적 벡터·4종 메타데이터·ID를 최대 64개씩 전달합니다. 마지막에 소유자 AND 문서 ID로 조회하여 예상 ID 집합과 개수가 모두 일치하는지 검사합니다.
+- 부분 저장·검증 실패·시간 초과 시 이번 요청이 저장을 시도한 ID만 소유자 AND 문서 ID 조건으로 삭제하고 실제 제거를 확인합니다. 정리 실패는 `STORAGE_ERROR`로 보고하고 고정 로그 `ingestion_cleanup_failed`를 남깁니다. 잔재가 남으면 다음 재적재도 409로 거부하며, 삭제·복구는 D단계에서 연결합니다.
+- Chroma 동기 작업은 작업 스레드로 실행합니다. 요청 취소 시 작업 종료와 정리를 기다린 뒤 취소를 전파하며, 반복 취소에도 문서 잠금을 먼저 해제하지 않습니다. 취소와 저장 완료가 겹치는 경우도 정리합니다.
+- **단일 앱·단일 worker·공유 coordinator 사용**을 전제로 합니다. 외부 writer나 다른 프로세스와의 원자성, 서버 강제 종료 후 자동 복구는 보장하지 않습니다. Chroma 호출 자체를 강제 중단할 수 없어 처리 100초·정리 10초의 하드 상한은 구현하지 않았습니다. 멈춘 저장소에서 빠른 응답보다 작업 완료·정리를 기다리는 방식이며, Backend의 120초 뒤 DELETE 경합은 D단계 검증 대상입니다.
+
+`uv run --locked python -m unittest discover -s tests -p test_ingest.py -v`로 임시 Chroma·모의 임베딩을 검증합니다. 합성 PDF 저장, 클라이언트 종료 후 재개방, 중복, 일부 저장 실패, 다른 소유자·문서 보존, 정리 실패, 시간 초과, 반복 취소를 포함합니다. 실제 교안이나 API를 사용하지 않습니다.
+
+## 12. 다음 단계
 
 실제 임베딩·Groq·OpenAI 연결 테스트의 실행 방법과 기존 성공 기록은 [실제 API 연결 검증](validation/README.md)을 참고하세요. 기본 단위 테스트는 외부 API를 호출하지 않습니다.
 
-사용자가 Chroma를 검토한 뒤 C3의 저장 부분을 진행합니다. 청크 ID·중복 정책·저장·정리 기능은 아직 구현하지 않았습니다. 요청 필드 검증과 인증 연결·HTTP 오류 매핑은 C4에서 연결합니다. 삭제·실패 복구·동시 요청과 실제 API 성능 검증도 아직 남아 있습니다.
+다음은 C4 요청 필드 검증·인증 연결·HTTP 오류 매핑입니다. 내부 오류 계약의 API 설계·Mock 정리도 함께 진행합니다. D단계 DELETE API와 적재·삭제 경합, 실제 API 성능 검증은 남아 있습니다. C3의 모의 임베딩·임시 Chroma 성공은 실제 OpenAI 적재나 Backend E2E 검증을 뜻하지 않습니다.

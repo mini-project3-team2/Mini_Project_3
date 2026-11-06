@@ -8,6 +8,7 @@ from fastapi import Request
 from src.core.config import Settings
 from src.core.embeddings import open_embeddings
 from src.services.vectorstore import open_collection
+from src.services.ingest import IngestionCoordinator
 
 
 class AppResources:
@@ -18,6 +19,7 @@ class AppResources:
         self._embeddings = None
         self._collection = None
         self._closed = False
+        self.ingestion = IngestionCoordinator()
 
     async def _get(self, attribute, factory):
         async with self._lock:
