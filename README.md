@@ -444,20 +444,108 @@ docker compose down -v             # 중지 + DB 초기화
 
 > 평가: 개별 70% / 팀 30%. 개인 기여도는 **Git 커밋 로그**(커밋 수·빈도·메시지·브랜치)로 측정합니다.
 
-| 규칙 | 내용 |
-|---|---|
-| 커밋 작성자 | **본인 GitHub 계정 이메일** ([3.2](#32-저장소-최초-세팅-1회)) |
-| 브랜치 | `main`(배포) / `feature/*` (버그는 `fix/*`) → **PR 로만 병합**, `main` 직접 푸시 금지 |
-| PR 병합 | **Create a merge commit** (Squash 금지 - 개별 커밋이 사라짐) |
-| 커밋 메시지 | `feat: 문서 업로드 API` · `fix(security): 타 사용자 문서 조회 차단` · `docs:` `chore:` `ci:` `refactor:` `test:` |
-| 커밋 금지 | `.env`, 키 파일, `node_modules`, 빌드 산출물 (`.gitignore` 로 차단됨) |
-| 스탠드업 | 매일 15분: 어제 한 일 / 오늘 할 일 / 막힌 점 |
-
-**보안 이슈 → 수정 커밋 연결** (평가표 "보안 조치 커밋의 기여도")
+### 6.1 브랜치 구조
 
 ```
-Issue (보안 점검 발견사항 템플릿)  →  fix(security): ... 커밋  →  PR 에 "Closes #이슈번호"
+main                        ← 배포용 · 직접 push 금지 · 병합 시 이미지 빌드·Push
+ └── develop                ← 통합용 · 모든 작업 브랜치의 출발점이자 PR 대상
+      ├── feature/파트-기능            예) feature/be-auth-jwt
+      ├── fix/파트-내용                예) fix/fe-stream-loading
+      │    └── security/이슈번호-취약점   예) fix/security/12-idor-document
+      ├── chore/infra-내용             예) chore/infra-compose
+      ├── ci/내용                      예) ci/github-actions
+      └── docs/내용                    예) docs/security-report
+
+파트: be (Backend) · fe (Frontend) · ai (AI Module) · infra (Docker·배포)
 ```
+
+- 브랜치 타입(`feature`, `fix`, `chore`, `ci`, `docs`)의 의미는 [6.2의 커밋 타입](#62-커밋-메시지)과 같음
+- `develop`에서 따고 → `develop`으로 PR → 리뷰 1명 승인 후 병합
+- 영어 소문자 + 하이픈, **기능 1개 = 브랜치 1개**, 1~2일 안에 PR
+- `develop` → `main` 병합은 **배포 직전**에만 (DevOps가 PR 생성)
+- `main`, `develop`은 Branch protection 적용: **PR 필수 + 리뷰 1명 이상 승인**
+
+### 6.2 커밋 메시지
+
+형식: `타입(범위): 내용`
+
+| 타입 | 의미 | 예시 |
+|------|------|------|
+| `feat` | 새 기능 추가 (브랜치는 `feature`) | `feat(be): 자료 업로드 API` |
+| `fix` | 버그 수정 | `fix(fe): 스트리밍 중 로딩 표시 안 꺼지는 문제` |
+| `fix(security)` | 보안 취약점 조치 | `fix(security): 타 사용자 자료 삭제 시 403 반환 (#12)` |
+| `refactor` | 동작은 그대로, 코드 구조만 개선 | `refactor(ai): 프롬프트 템플릿 분리` |
+| `test` | 테스트 코드 추가 · 수정 | `test(be): 소유자 검증 테스트` |
+| `chore` | 설정 · 의존성 · Docker 등 기능 외 작업 | `chore(infra): backend Dockerfile 멀티스테이지` |
+| `ci` | GitHub Actions 워크플로우 | `ci: 이미지 빌드·Push 워크플로우 추가` |
+| `docs` | 산출물 · README 등 문서 | `docs: 보안점검서 취약점 1건 추가` |
+
+- 내용은 한국어로 써도 됨, **한 커밋 = 한 가지 변경**, 작게 자주 커밋 (개인 기여도는 커밋 이력으로 평가)
+- 보안 조치 커밋은 반드시 `fix(security):`로 시작하고 끝에 `(#이슈번호)` 표기 → [6.5 보안 이슈](#65-보안-이슈-처리) 참고
+
+### 6.3 작업 흐름
+
+```bash
+git checkout develop && git pull origin develop
+git checkout -b feature/be-auth-jwt
+# 작업 · 커밋
+git pull origin develop          # PR 전 최신 develop 반영, 충돌은 본인이 해결
+git push -u origin feature/be-auth-jwt
+# GitHub에서 develop 대상으로 PR 생성
+```
+
+### 6.4 Pull Request
+
+- 제목은 커밋 형식과 동일, 본문에 **무엇을 / 어떻게 확인했는지** 작성 (보안 조치는 조치 전·후 응답 코드)
+- 보안 조치 PR은 본문에 `Closes #이슈번호` 필수 (병합 시 Issue 자동 종료)
+- 병합 방식: **Create a merge commit** (Squash 금지: 개인 커밋 이력 보존)
+- 병합 후 작업 브랜치 삭제
+
+### 6.5 보안 이슈 처리
+
+평가표의 "보안 조치 커밋의 기여도"는 **보안 이슈 → 수정 커밋**이 이어져 있는지를 봅니다. 취약점을 찾으면 바로 고치지 말고 아래 순서를 따릅니다.
+
+```
+Issue 등록 (보안 점검 발견사항 템플릿, 라벨: security)
+   ↓
+브랜치 생성  fix/security/이슈번호-취약점
+   ↓
+커밋        fix(security): 내용 (#이슈번호)
+   ↓
+PR 본문     Closes #이슈번호  →  병합 시 Issue 자동 종료
+   ↓
+보안점검서   Issue · PR 링크와 조치 전·후 근거 기록
+```
+
+#### 예시
+
+| 단계 | 내용 |
+|------|------|
+| Issue | `#12 [Security] 타 사용자 자료 삭제 가능 (IDOR)` |
+| 브랜치 | `fix/security/12-idor-document` |
+| 커밋 | `fix(security): 자료 삭제 시 소유자 검증 후 403 반환 (#12)` |
+| PR | 본문에 `Closes #12` |
+
+Issue 템플릿 항목 (`.github/ISSUE_TEMPLATE/security.md`)
+
+- **OWASP 분류**: 예) A01 Broken Access Control
+- **대상**: API 경로 / 화면 / 모듈
+- **재현 방법**: 요청 · 도구(Burp 등) · 단계
+- **실제 결과 / 기대 결과**: 예) 200 삭제됨 / 403
+- **근거**: 캡처 · 응답 코드 · 로그 (키 · 토큰은 가림)
+- **조치 방안**
+- **재확인 결과**: 조치 후 응답 코드 · 캡처
+
+### 6.6 커밋 금지
+
+- `.env`, API Key, DB 비밀번호, JWT secret → **저장소에 올라가면 해당 항목 0점**. 실수로 push했다면 즉시 강사님께 알리고 키 재발급 (커밋 삭제만으로는 부족)
+- `node_modules/`, `target/`, `build/`, `.venv/`, Vector DB 파일, 업로드한 수업 자료 PDF
+- 새 환경 변수를 추가하면 `.env.example`에 **키 이름만** 추가
+- `docker-compose.yml`, `.env.example` 변경은 DevOps 파트와 먼저 공유
+
+### 6.7 스탠드업
+
+매일 15분: 어제 한 일 / 오늘 할 일 / 막힌 점
 
 ---
 
