@@ -11,7 +11,6 @@ import com.asknote.entity.DocumentStatus;
 import com.asknote.entity.Member;
 import com.asknote.repository.ChatHistoryRepository;
 import com.asknote.repository.DocumentRepository;
-import com.asknote.repository.MemberRepository;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,7 +37,6 @@ public class ChatStreamService {
     static final String ERROR_MESSAGE = "{\"message\":\"지금은 답변할 수 없습니다. 잠시 후 다시 시도해 주세요\"}";
 
     private final CurrentMemberProvider currentMemberProvider;
-    private final MemberRepository memberRepository;
     private final DocumentRepository documentRepository;
     private final ChatHistoryRepository chatHistoryRepository;
     private final AiQueryClient aiQueryClient;
@@ -54,20 +52,15 @@ public class ChatStreamService {
 
     /**
      * 스트림 시작 전 준비 — 질문할 회원 · READY 문서 id 확정
-     * TODO(RAG 소유자 우회 조치): 요청에 ownerUuid 가 있으면 그 회원의 자료로 검색함 (취약)
+     * RAG 소유자 우회 조치: ownerUuid · documentIds 는 JWT 회원에게서만 만든다 (요청 값 사용 안 함)
      */
     public ChatContext prepare(ChatStreamRequest request) {
         Member member = currentMemberProvider.getCurrentMember();
-        Member searchOwner = member;
-        if (request.ownerUuid() != null && !request.ownerUuid().isBlank()) {
-            searchOwner = memberRepository.findByUuid(request.ownerUuid())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT));
-        }
-        List<Long> documentIds = documentRepository.findIdsByMemberIdAndStatus(searchOwner.getId(), DocumentStatus.READY);
+        List<Long> documentIds = documentRepository.findIdsByMemberIdAndStatus(member.getId(), DocumentStatus.READY);
         if (documentIds.isEmpty()) {
             throw new BusinessException(ErrorCode.NO_DOCUMENT);
         }
-        return new ChatContext(member, request.question().trim(), searchOwner.getUuid(), documentIds);
+        return new ChatContext(member, request.question().trim(), member.getUuid(), documentIds);
     }
 
     public SseEmitter stream(ChatContext context) {
