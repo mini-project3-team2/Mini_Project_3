@@ -1,0 +1,6 @@
+{
+  "success": false,
+  "data": null,
+  "message": "PDF 파일만 올릴 수 있습니다",
+  "code": "INVALID_FILE_TYPE"
+}

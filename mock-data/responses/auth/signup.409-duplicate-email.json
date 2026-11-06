@@ -1,0 +1,6 @@
+{
+  "success": false,
+  "data": null,
+  "message": "이미 가입된 이메일입니다",
+  "code": "DUPLICATE_EMAIL"
+}

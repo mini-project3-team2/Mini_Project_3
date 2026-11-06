@@ -1,0 +1,6 @@
+{
+  "success": false,
+  "data": null,
+  "message": "다시 로그인해 주세요",
+  "code": "INVALID_REFRESH_TOKEN"
+}

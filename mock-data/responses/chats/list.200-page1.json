@@ -1,0 +1,48 @@
+{
+  "success": true,
+  "data": {
+    "content": [
+      {
+        "id": 21,
+        "question": "BCrypt는 같은 비밀번호도 왜 매번 결과가 달라?",
+        "answer": "해시할 때마다 무작위 솔트를 섞기 때문이에요. 솔트는 결과 안에 함께 저장돼서 비교할 때 다시 쓰여요.",
+        "sources": [
+          {
+            "documentId": 2,
+            "documentName": "Spring_Security_JWT.pdf",
+            "page": 12
+          }
+        ],
+        "feedback": "HELPFUL",
+        "createdAt": "2026-11-08T16:22:00"
+      },
+      {
+        "id": 20,
+        "question": "벡터 DB에서 메타데이터 필터는 언제 써?",
+        "answer": "검색할 때 특정 조건(예: 소유자, 문서 id)에 맞는 청크만 대상으로 삼고 싶을 때 써요.",
+        "sources": [
+          {
+            "documentId": 1,
+            "documentName": "LangChain_RAG_실습.pdf",
+            "page": 27
+          }
+        ],
+        "feedback": null,
+        "createdAt": "2026-11-08T13:15:00"
+      },
+      {
+        "id": 19,
+        "question": "Kubernetes 배포 방법도 알려 줘",
+        "answer": "올린 자료에서 관련 내용을 찾지 못했어요. 해당 내용이 담긴 자료를 올린 뒤 다시 질문해 주세요.",
+        "sources": [],
+        "feedback": null,
+        "createdAt": "2026-11-08T13:08:00"
+      }
+    ],
+    "page": 1,
+    "size": 10,
+    "totalElements": 13,
+    "totalPages": 2
+  },
+  "message": ""
+}
