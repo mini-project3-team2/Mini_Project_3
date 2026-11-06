@@ -1,6 +1,6 @@
 # AI 모듈 개발 환경 준비
 
-Python 프로젝트·공통 설정 로더·FastAPI 앱과 `/health`가 구현돼 있습니다. 내부 인증과 적재·삭제 API는 아직 구현하지 않았습니다.
+Python 프로젝트·공통 설정 로더·FastAPI 앱·`/health`·내부 인증 의존성이 구현돼 있습니다. 적재·삭제 API는 아직 구현하지 않았습니다.
 
 ## 1. 실행 환경
 
@@ -102,6 +102,21 @@ uv run --locked uvicorn src.api.main:app --reload --port 8000
 
 앱은 lifespan 시작 시 `load_settings()`를 한 번 호출하고 `app.state.settings`에 보관합니다. 필수 설정이 잘못되면 기동에 실패합니다. 설정을 바꾼 뒤에는 앱을 재시작해야 합니다. API 키가 없어도 내부 토큰과 임베딩 설정이 올바르면 헬스체크가 동작합니다.
 
-## 7. 다음 단계
+## 7. 내부 인증 의존성
 
-내부 인증 의존성과 임베딩 클라이언트를 구현하고 검증합니다. 적재·삭제·질의 API는 아직 제공하지 않습니다.
+`src/core/security.py`의 `require_internal_token`을 내부 API 라우터에 적용합니다. 앱 전체에 적용하지 않아 `/health`는 공개로 유지합니다.
+
+```python
+from fastapi import APIRouter, Depends
+from src.core.security import require_internal_token
+
+router = APIRouter(dependencies=[Depends(require_internal_token)])
+```
+
+앱 시작 시 검증한 `app.state.settings.ai_internal_token`과 헤더를 `secrets.compare_digest`로 비교합니다. `X-Internal-Token`이 없거나 비어 있거나 불일치하면 `401`과 `{"detail":"Unauthorized"}`를 반환합니다. 중복 헤더와 비ASCII 값도 동일하게 거부하며, 입력 토큰을 로그나 응답에 담지 않습니다.
+
+테스트용 라우터에서 POST·DELETE 인증과 거부 시 핸들러 미실행을 확인합니다. 테스트 라우터는 서비스에 등록되지 않습니다. 실제 적재·삭제·질의 라우터를 구현할 때 위 의존성을 연결해야 합니다.
+
+## 8. 다음 단계
+
+공통 임베딩 생성 함수와 임베딩·Chroma 클라이언트 수명주기를 구현하고 검증합니다. 적재·삭제·질의 API는 아직 제공하지 않습니다.
