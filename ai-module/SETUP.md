@@ -1,6 +1,6 @@
 # AI 모듈 개발 환경 준비
 
-Python 프로젝트·공통 설정 로더·FastAPI 앱·`/health`·내부 인증 의존성·공통 클라이언트 관리가 구현돼 있습니다. 적재·삭제 API는 아직 구현하지 않았습니다.
+Python 프로젝트·공통 설정·FastAPI `/health`·내부 인증·공통 클라이언트와 `POST /internal/documents` 적재 API가 구현돼 있습니다. 삭제·질의 API는 아직 구현하지 않았습니다.
 
 ## 1. 실행 환경
 
@@ -129,13 +129,13 @@ router = APIRouter(dependencies=[Depends(require_internal_token)])
 
 ## 9. PDF 검증·추출·분할 (C2)
 
-`src/services/pdf.py`의 동기 함수 `prepare_pdf(source, filename, owner_uuid=..., document_id=..., document_name=...)`는 바이너리 스트림을 받아 LangChain `Document` 청크 목록을 반환합니다. 식별자와 표시 이름은 호출자가 C1 계약대로 검증한 값을 넘깁니다. 현재 HTTP 라우터에는 연결하지 않았습니다.
+`src/services/pdf.py`의 동기 함수 `prepare_pdf(source, filename, owner_uuid=..., document_id=..., document_name=...)`는 바이너리 스트림을 받아 LangChain `Document` 청크 목록을 반환합니다. 식별자와 표시 이름은 호출자가 C1 계약대로 검증한 값을 넘깁니다. C4 적재 라우터에서 호출합니다.
 
 - 파일 확장자(대소문자 무시), 실제 `%PDF-` 헤더, 빈 파일, 10MiB 제한을 검사합니다. MIME과 선언된 크기는 신뢰하지 않습니다.
 - 서버 생성 임시 경로에 나눠 복사하고, 성공·예외 시 모두 임시 파일을 정리합니다. 입력 스트림의 소유권은 호출자에게 있습니다.
 - `PyPDFLoader`로 페이지별 추출 후 800자·최대 100자 오버랩으로 분할합니다. 분할 경계에 따라 실제 오버랩은 작을 수 있습니다. 빈 페이지는 건너뛰되 PDF 페이지 번호는 1부터 원래 위치를 유지합니다.
 - 메타데이터는 `owner_uuid`, `document_id`, `document_name`, `page`만 남기며 PDF 작성자와 로컬 파일 경로는 제외합니다.
-- `PdfProcessingError`는 고정 `code`와 `status_code`를 제공합니다. 알려진 PDF 파싱 오류·텍스트 없음은 422, 입력 파일 오류는 400/413입니다. 디스크·스트림 오류나 예상하지 못한 버그를 422로 감추지 않습니다. HTTP 매핑은 C4에서 연결합니다.
+- `PdfProcessingError`는 고정 `code`와 `status_code`를 제공합니다. 알려진 PDF 파싱 오류·텍스트 없음은 422, 입력 파일 오류는 400/413입니다. 디스크·스트림 오류나 예상하지 못한 버그를 422로 감추지 않습니다. HTTP 매핑은 C4 적재 라우터에 연결했습니다.
 - 동기 함수는 작업 스레드에서 실행해야 합니다. 요청 취소만으로 스레드가 끝나지 않으므로 호출자는 작업이 끝날 때까지 입력 스트림을 유지해야 합니다. `prepare_pdf` 내부에서 임시 파일 생성·추출·정리를 함께 수행합니다. 비동기 취소 연동은 아직 검증하지 않았습니다.
 - 파일 바이트 제한은 압축 해제 후 메모리·페이지 수·CPU 시간의 상한이 아닙니다. 파서 프로세스 격리 및 하드 시간 제한은 구현하지 않았습니다. 이미지 OCR은 지원하지 않습니다.
 
@@ -143,7 +143,7 @@ router = APIRouter(dependencies=[Depends(require_internal_token)])
 
 ## 10. 임베딩·벡터 검증 (C3, 저장 전까지만)
 
-`src/services/embedding.py`의 `await embed_chunks(chunks, client, budget_seconds=...)`에 C2 결과와 기존 `AppResources.embeddings()`의 클라이언트를 전달합니다. 반환값은 텍스트·4종 메타데이터·검증된 벡터를 가진 `EmbeddedChunk` 목록이며 메모리에만 존재합니다. 이 함수는 Chroma를 가져오거나 생성·저장하지 않습니다. HTTP API에도 아직 연결하지 않았습니다.
+`src/services/embedding.py`의 `await embed_chunks(chunks, client, budget_seconds=...)`에 C2 결과와 기존 `AppResources.embeddings()`의 클라이언트를 전달합니다. 반환값은 텍스트·4종 메타데이터·검증된 벡터를 가진 `EmbeddedChunk` 목록이며 메모리에만 존재합니다. 이 함수는 Chroma를 가져오거나 생성·저장하지 않습니다. C4 적재 API는 이 결과를 C3 저장 단계로 전달합니다.
 
 - 전체 청크의 공백·800자 제한·UTF-8 인코딩 가능 여부·메타데이터 형태를 첫 호출 전에 검증합니다. UUID와 파일명 등 요청 필드의 상세 계약 검증은 호출자 책임입니다.
 - 최대 64개씩 순서대로 비동기 임베딩을 요청합니다. 새 클라이언트를 만들지 않으며 재시도하지 않습니다.
@@ -157,7 +157,7 @@ router = APIRouter(dependencies=[Depends(require_internal_token)])
 
 ## 11. Chroma 저장 (C3)
 
-앱 수명주기당 하나인 `app.state.resources.ingestion`을 사용합니다. `await resources.ingestion.ingest(chunks, embeddings, collection, budget_seconds=남은_초)`에 C2 청크와 공통 클라이언트를 전달하면 임베딩·검증·저장 후 `IngestionResult(document_id, chunk_count)`를 반환합니다. C2 PDF 준비와 이 호출을 잇는 HTTP 라우터는 C4에서 구현합니다.
+앱 수명주기당 하나인 `app.state.resources.ingestion`을 사용합니다. `await resources.ingestion.ingest(chunks, embeddings, collection, budget_seconds=남은_초)`에 C2 청크와 공통 클라이언트를 전달하면 임베딩·검증·저장 후 `IngestionResult(document_id, chunk_count)`를 반환합니다. C4 HTTP 라우터에서 C2 PDF 준비 후 이 함수를 호출합니다.
 
 - 동일 소유자·문서를 처리 중이면 409 `INGESTION_IN_PROGRESS`, 기존 청크가 있으면 임베딩 전에 409 `DOCUMENT_ALREADY_EXISTS`로 거부합니다. 문서 처리 중 잠금을 유지하고 `upsert`나 선삭제는 하지 않습니다.
 - UUID를 표준 소문자로 정규화하고, 한 요청에 서로 다른 소유자·문서 ID·파일명이 섞인 청크를 거부합니다. 청크 ID는 `owner_uuid:document_id:0부터순번`입니다.
@@ -168,8 +168,18 @@ router = APIRouter(dependencies=[Depends(require_internal_token)])
 
 `uv run --locked python -m unittest discover -s tests -p test_ingest.py -v`로 임시 Chroma·모의 임베딩을 검증합니다. 합성 PDF 저장, 클라이언트 종료 후 재개방, 중복, 일부 저장 실패, 다른 소유자·문서 보존, 정리 실패, 시간 초과, 반복 취소를 포함합니다. 실제 교안이나 API를 사용하지 않습니다.
 
-## 12. 다음 단계
+## 12. 자료 적재 API (C4)
+
+`POST /internal/documents`에 `X-Internal-Token`과 multipart 필드 `file`, `documentId`, `ownerUuid`, `documentName`을 전달합니다. 정상 응답은 `200 {"documentId":12,"chunkCount":2}`입니다. 입력 경계·실패 본문은 [적재 계약](INGESTION_CONTRACT.md)과 API 설계서 6.1을 따릅니다. `/docs`와 `/openapi.json`에도 multipart 요청 구조를 제공합니다.
+
+인증 후 multipart를 파싱하며 실제 수신량 기준 전체 11MiB, 파일 1개, 일반 필드 최대 16개·각 1KiB로 제한합니다. 파일 자체의 10MiB 제한은 C2에서 별도로 확인합니다. 누락·중복·잘못된 입력은 400이며, FastAPI 기본 422와 입력값 노출을 사용하지 않습니다. 422는 추출 실패에만 사용합니다.
+
+PDF 처리는 작업 스레드에서 수행하며 취소 시 작업이 끝날 때까지 기다린 뒤 업로드 스트림을 닫습니다. 내부 시간 예산은 PDF 복사부터 계산하여 공통 클라이언트 준비와 적재에 남은 시간을 전달합니다. multipart 업로드 시간과 파서/저장소의 하드 중단까지 보장하는 것은 아닙니다. 중복 검사는 PDF 추출 이후·임베딩 이전에 수행합니다.
+
+`uv run --locked python -m unittest discover -s tests -p test_documents.py -v`로 인증·입력 경계·중복·오류 매핑과 HTTP → 합성 PDF → 모의 임베딩 → 임시 Chroma 흐름을 확인합니다. 실제 모델 API와 Backend 서버는 호출하지 않습니다.
+
+## 13. 다음 단계
 
 실제 임베딩·Groq·OpenAI 연결 테스트의 실행 방법과 기존 성공 기록은 [실제 API 연결 검증](validation/README.md)을 참고하세요. 기본 단위 테스트는 외부 API를 호출하지 않습니다.
 
-다음은 C4 요청 필드 검증·인증 연결·HTTP 오류 매핑입니다. 내부 오류 계약의 API 설계·Mock 정리도 함께 진행합니다. D단계 DELETE API와 적재·삭제 경합, 실제 API 성능 검증은 남아 있습니다. C3의 모의 임베딩·임시 Chroma 성공은 실제 OpenAI 적재나 Backend E2E 검증을 뜻하지 않습니다.
+다음은 C5 최종 회귀 검증·정리 및 D단계 DELETE API와 적재·삭제 경합입니다. 실제 API 성능 검증도 남아 있습니다. C4의 모의 임베딩·임시 Chroma 성공은 실제 OpenAI 적재나 Backend E2E 검증을 뜻하지 않습니다.

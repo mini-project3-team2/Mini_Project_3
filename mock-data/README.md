@@ -72,4 +72,5 @@ mock-data/
 - **Frontend (MSW):** `msw/` 핸들러를 만들 때 `data/`를 메모리 DB로 읽고, 응답은 `responses/` 형식을 따릅니다. 스트리밍은 `sse/*.events.json`을 순서대로 `event: ...\ndata: ...\n\n` 형식으로 흘려보내면 됩니다. 개발 모드에서 기본으로 켜고, `VITE_USE_MOCK=false`로 끕니다
 - **Backend:** 테스트 기대값으로 `responses/`를, 가짜 AI Module 응답으로 `internal/`을 씁니다
 - **AI Module:** `internal/` 형식이 실제 응답과 같아야 합니다 (`done`은 `{}`, `error`는 `{"code": ...}`)
+- **내부 적재 오류:** `internal/ingest.*.json`에 400·401·409·413·422·500·503 예시를 제공합니다. 422는 PDF 추출 실패에만 사용합니다. Backend의 현재 외부 오류 매핑은 API 설계서 6.1을 참고하세요.
 - **PDF 적재 검증:** `pdfs/`의 PDF를 사용합니다. JSON 응답에 등장하는 예시 파일명과는 별개의 실제 검증 자료이며, `gen.py`로 생성되지 않습니다.

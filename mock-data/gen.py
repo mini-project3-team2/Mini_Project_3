@@ -119,6 +119,14 @@ for name,ev in [("stream-success",ok_ev),("stream-not-found",na_ev),("stream-err
 # internal (Backend가 쓰는 가짜 AI 응답)
 w('internal/ingest.200.json',{"documentId":4,"chunkCount":57})
 w('internal/ingest.422-text-extraction-failed.json',{"error":"TEXT_EXTRACTION_FAILED"})
+for status, code in [
+    (400, 'INVALID_INPUT'), (400, 'EMPTY_FILE'), (400, 'INVALID_FILE_TYPE'),
+    (409, 'DOCUMENT_ALREADY_EXISTS'), (409, 'INGESTION_IN_PROGRESS'),
+    (413, 'FILE_TOO_LARGE'), (503, 'EMBEDDING_ERROR'), (503, 'STORAGE_ERROR'),
+    (503, 'INGESTION_TIMEOUT'), (500, 'INTERNAL_ERROR'),
+]:
+    w(f'internal/ingest.{status}-{code.lower().replace("_", "-")}.json', {'error':code})
+w('internal/ingest.401-unauthorized.json', {'detail':'Unauthorized'})
 wt('internal/query-stream-success.txt',sse([("sources",[S1(12),S1(14)])]+[("token",{"text":t}) for t in tok]+[("done",{})]))
 wt('internal/query-stream-error.txt',sse([("sources",[S2(31)]),("token",{"text":"토큰 원문이 "}),("error",{"code":"LLM_ERROR"})]))
 print("ok")
