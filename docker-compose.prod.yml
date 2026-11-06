@@ -1,0 +1,148 @@
+# =========================================================
+#  운영(EC2)용 Compose - Docker Hub 이미지 pull 방식 (build 없음)
+#  배포:  docker compose -f docker-compose.prod.yml pull
+#         docker compose -f docker-compose.prod.yml up -d
+#
+#  로컬(docker-compose.yml)과 다른 점
+#   - build 대신 Docker Hub 이미지 사용 (GitHub Actions 가 main 병합 시 빌드 · Push)
+#   - ports 는 frontend 80:80 만 게시. backend · ai-service · database 는 게시하지 않음 (Nginx /api 경유)
+#   - 네트워크 3분할 → frontend 는 ai-service · database 에 닿을 수 없음
+#       edge-net : frontend · backend
+#       ai-net   : backend · ai-service   (ai-service 가 OpenAI API 를 호출하므로 internal 아님)
+#       db-net   : backend · database     (internal: true → database 는 외부 인터넷과 단절)
+#   - 컨테이너 로그 크기 제한 (EC2 디스크 가득 참 방지)
+#
+#  환경 변수 규칙은 로컬과 동일 (docs/Compose_환경변수_작성가이드.md)
+#   - EC2 의 이 파일과 같은 폴더에 .env 하나 (chmod 600), env_file 은 쓰지 않음
+#   - 서비스별 environment: 에 그 서비스가 쓰는 변수만 넘김 (최소 권한)
+#   - JWT_SECRET · AI_INTERNAL_TOKEN · ADMIN_PASSWORD 는 로컬과 다른 새 값
+# =========================================================
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  database:
+    # 배포 전 패치 버전까지 고정 권장 (예: mariadb:10.11.x) - 이미지 취약점 관리 (보안점검서 I-4)
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?.env 에 MARIADB_ROOT_PASSWORD 를 설정하세요}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:?.env 에 MARIADB_DATABASE 를 설정하세요}
+      MARIADB_USER: ${MARIADB_USER:?.env 에 MARIADB_USER 를 설정하세요}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:?.env 에 MARIADB_PASSWORD 를 설정하세요}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    # ports 없음: 외부 비공개 (보안그룹에서도 3306 미허용)
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging: *default-logging
+    networks:
+      - db-net
+
+  ai-service:
+    image: ${DOCKERHUB_USERNAME:?.env 에 DOCKERHUB_USERNAME 을 설정하세요}/asknote-ai:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      # 받는 값: 내부 토큰, LLM · 임베딩 설정, API 키 / 받지 않는 값: DB, JWT, 관리자 계정
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN}
+      LLM_PROVIDER: ${LLM_PROVIDER}            # 운영: openai
+      LLM_MODEL: ${LLM_MODEL}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}          # 운영(LLM_PROVIDER=openai)에서는 비워도 됨
+      OPENAI_API_KEY: ${OPENAI_API_KEY}        # LLM · 임베딩 모두 OpenAI
+      CHROMA_PERSIST_DIRECTORY: /data/chroma   # 내부 경로는 직접 지정 (chroma-data 볼륨 위치와 일치)
+      TZ: Asia/Seoul
+    # ports 없음: backend 만 ai-net 으로 접근 (X-Internal-Token 인증)
+    volumes:
+      # 운영 Chroma 는 비어 있는 상태로 시작 → 배포 후 자료를 다시 업로드해 적재 (개발 데이터 복사 금지)
+      - chroma-data:/data/chroma
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging: *default-logging
+    networks:
+      - ai-net
+
+  backend:
+    image: ${DOCKERHUB_USERNAME:?.env 에 DOCKERHUB_USERNAME 을 설정하세요}/asknote-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      # 받는 값: DB 계정, JWT, CORS, Actuator, 관리자 계정, AI 주소 · 내부 토큰
+      # 받지 않는 값: LLM · 임베딩 설정, API 키
+      DB_HOST: database                        # 컨테이너 주소는 직접 지정
+      DB_PORT: 3306
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}   # 운영: http://<EC2 주소>
+      ACTUATOR_EXPOSURE: ${ACTUATOR_EXPOSURE}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      AI_SERVICE_URL: http://ai-service:8000   # 컨테이너 주소는 직접 지정
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN}
+      LOGIN_LOCK_MINUTES: ${LOGIN_LOCK_MINUTES:-15}   # (선택) 시연 때 잠금 시간 단축
+      TZ: Asia/Seoul
+    # ports 없음: 외부 요청은 frontend Nginx 의 /api/** 프록시로만 도달 (/actuator 는 Nginx 에서 404)
+    depends_on:
+      database:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging: *default-logging
+    networks:
+      - edge-net
+      - ai-net
+      - db-net
+
+  frontend:
+    image: ${DOCKERHUB_USERNAME:?.env 에 DOCKERHUB_USERNAME 을 설정하세요}/asknote-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    # environment 없음: 비밀 값 불필요 (nginx.conf 는 이미지에 포함)
+    ports:
+      - "80:80"                        # 유일한 공개 포트 (보안그룹 인바운드 80 허용)
+    depends_on:
+      backend:
+        condition: service_healthy     # nginx 기동 시 upstream(backend) 이름을 찾을 수 있도록
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    logging: *default-logging
+    networks:
+      - edge-net
+
+volumes:
+  db-data:       # MariaDB 데이터
+  chroma-data:   # Chroma 벡터 DB (운영에서 재적재)
+
+networks:
+  edge-net:
+  ai-net:
+  db-net:
+    internal: true   # 외부 통신 차단 - backend 와 database 사이에서만 사용
