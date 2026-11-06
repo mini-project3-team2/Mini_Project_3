@@ -1,4 +1,4 @@
-# AI 학습 도우미 Mock 데이터
+# AskNote Mock 데이터
 
 `docs/4.API설계서.md`의 요청 · 응답 형식을 그대로 따른 Mock 데이터입니다. Backend가 완성되기 전에 Frontend가 실제와 같은 데이터로 화면을 만들고, Backend는 같은 JSON을 테스트 기대값으로 쓰는 것이 목적입니다.
 
@@ -68,6 +68,6 @@ mock-data/
 
 ## 사용 방법
 
-- **Frontend (MSW):** `msw/` 핸들러를 만들 때 `data/`를 메모리 DB로 읽고, 응답은 `responses/` 형식을 따릅니다. 스트리밍은 `sse/*.events.json`을 순서대로 `event: ...\ndata: ...\n\n` 형식으로 흘려보내면 됩니다. MSW 연결 방식은 2차 프로젝트와 같습니다 (`VITE_USE_MOCK=false`로 끔)
+- **Frontend (MSW):** `msw/` 핸들러를 만들 때 `data/`를 메모리 DB로 읽고, 응답은 `responses/` 형식을 따릅니다. 스트리밍은 `sse/*.events.json`을 순서대로 `event: ...\ndata: ...\n\n` 형식으로 흘려보내면 됩니다. 개발 모드에서 기본으로 켜고, `VITE_USE_MOCK=false`로 끕니다
 - **Backend:** 테스트 기대값으로 `responses/`를, 가짜 AI Module 응답으로 `internal/`을 씁니다
 - **AI Module:** `internal/` 형식이 실제 응답과 같아야 합니다 (`done`은 `{}`, `error`는 `{"code": ...}`)
