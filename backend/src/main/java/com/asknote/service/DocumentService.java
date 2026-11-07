@@ -10,13 +10,14 @@ import com.asknote.entity.Document;
 import com.asknote.entity.Member;
 import com.asknote.repository.DocumentRepository;
 import java.io.IOException;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 자료 업로드 · 삭제
+ * 자료 목록 · 업로드 · 삭제
  * 메서드에 @Transactional 을 걸지 않는다 — AI 적재(최대 120초) 동안 DB 연결 · 트랜잭션을 붙잡지 않기 위해
  * 각 save · delete 가 리포지토리 단위 트랜잭션으로 바로 커밋된다
  */
@@ -32,6 +33,17 @@ public class DocumentService {
     private final PdfValidator pdfValidator;
     private final AiDocumentClient aiDocumentClient;
     private final AuditLogger auditLogger;
+
+    /**
+     * 내 자료 목록 (최신순, 페이징 없음, status 포함)
+     * 회원은 JWT 로만 얻는다 — 요청 값으로 회원을 받지 않으므로 남의 목록은 조회할 수 없음
+     */
+    public List<DocumentResponse> getMyDocuments() {
+        Member member = currentMemberProvider.getCurrentMember();
+        return documentRepository.findByMemberIdOrderByCreatedAtDescIdDesc(member.getId()).stream()
+                .map(DocumentResponse::from)
+                .toList();
+    }
 
     /** 업로드: 행 저장(INDEXING) → AI 적재 → READY. 실패하면 청크 삭제 → 행 삭제 후 오류 (원본은 저장하지 않음) */
     public DocumentResponse upload(MultipartFile file) {
