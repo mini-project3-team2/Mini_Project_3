@@ -111,7 +111,7 @@
 
 | 구분 | 기술 · 버전 | 버전 기준 파일 | Docker 이미지 |
 |---|---|---|---|
-| Frontend | React **19.3.x**, React Router, **Zustand**, Vite | `frontend/package.json` | `node:24-alpine` → `nginx:alpine` |
+| Frontend | React **19.3.x**, React Router, **Zustand**, Vite | `frontend/package.json` | `node:24-alpine` → `nginxinc/nginx-unprivileged:alpine` (비root) |
 | Backend | Spring Boot **4.0.x**, Spring Security **7.x**, JPA, Java **17** | `backend/pom.xml` | Maven + `eclipse-temurin:17-jdk` → `eclipse-temurin:17-jre` |
 | AI Module | Python **3.12**, uv **0.12.23**, FastAPI, LangChain, Tavily(필요 시) | `ai-module/.python-version`, `uv.lock` | `python:3.12-slim` (+ `ghcr.io/astral-sh/uv:0.12.23`) |
 | Database | MariaDB, Vector DB (FAISS 또는 Chroma), Flyway | `docker-compose.yml` | `mariadb:10.11` |
