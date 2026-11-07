@@ -11,6 +11,10 @@
 #       ai-net   : backend · ai-service   (ai-service 가 OpenAI API 를 호출하므로 internal 아님)
 #       db-net   : backend · database     (internal: true → database 는 외부 인터넷과 단절)
 #   - 컨테이너 로그 크기 제한 (EC2 디스크 가득 참 방지)
+#   - 서비스별 메모리 상한 mem_limit (한 컨테이너가 EC2 메모리를 모두 써서 서버 전체가 멈추는 것 방지)
+#       ※ 현재 값은 잠정값 (합계 약 2.6GB, t3.medium 4GB 기준). EC2 인스턴스 확정 후
+#         `docker stats` 측정 최고값 + 30~50% 로 조정. 합계는 인스턴스 메모리 - 약 500MB(OS·Docker) 이내
+#       ※ backend 는 상한이 있어야 MaxRAMPercentage=75 가 EC2 전체가 아닌 컨테이너 기준으로 계산됨
 #
 #  환경 변수 규칙은 로컬과 동일 (docs/Compose_환경변수_작성가이드.md)
 #   - EC2 의 이 파일과 같은 폴더에 .env 하나 (chmod 600), env_file 은 쓰지 않음
@@ -29,6 +33,7 @@ services:
     # 배포 전 패치 버전까지 고정 권장 (예: mariadb:10.11.x) - 이미지 취약점 관리 (보안점검서 I-4)
     image: mariadb:10.11
     restart: unless-stopped
+    mem_limit: 512m                    # 잠정값 - MariaDB 기본 InnoDB 버퍼 128MB 기준 여유
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?.env 에 MARIADB_ROOT_PASSWORD 를 설정하세요}
       MARIADB_DATABASE: ${MARIADB_DATABASE:?.env 에 MARIADB_DATABASE 를 설정하세요}
@@ -54,6 +59,7 @@ services:
   ai-service:
     image: ${DOCKERHUB_USERNAME:?.env 에 DOCKERHUB_USERNAME 을 설정하세요}/asknote-ai:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    mem_limit: 1g                      # 잠정값 - PDF 적재 시 순간 사용량 측정 전이라 여유 확보
     environment:
       # 받는 값: 내부 토큰, LLM · 임베딩 설정, API 키 / 받지 않는 값: DB, JWT, 관리자 계정
       AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN}
@@ -82,6 +88,7 @@ services:
   backend:
     image: ${DOCKERHUB_USERNAME:?.env 에 DOCKERHUB_USERNAME 을 설정하세요}/asknote-backend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    mem_limit: 1g                      # 잠정값 - Dockerfile MaxRAMPercentage=75 → 힙 약 768MB + 비힙(Metaspace 등) 여유
     environment:
       # 받는 값: DB 계정, JWT, CORS, Actuator, 관리자 계정, AI 주소 · 내부 토큰
       # 받지 않는 값: LLM · 임베딩 설정, API 키
@@ -122,6 +129,7 @@ services:
   frontend:
     image: ${DOCKERHUB_USERNAME:?.env 에 DOCKERHUB_USERNAME 을 설정하세요}/asknote-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    mem_limit: 128m                    # 잠정값 - 정적 파일 서빙 + 프록시
     # environment 없음: 비밀 값 불필요 (nginx.conf 는 이미지에 포함)
     ports:
       - "80:8080"                      # 유일한 공개 포트 (보안그룹 인바운드 80 허용, 컨테이너는 비root nginx 8080)
