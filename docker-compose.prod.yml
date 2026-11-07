@@ -124,12 +124,12 @@ services:
     restart: unless-stopped
     # environment 없음: 비밀 값 불필요 (nginx.conf 는 이미지에 포함)
     ports:
-      - "80:80"                        # 유일한 공개 포트 (보안그룹 인바운드 80 허용)
+      - "80:8080"                      # 유일한 공개 포트 (보안그룹 인바운드 80 허용, 컨테이너는 비root nginx 8080)
     depends_on:
       backend:
         condition: service_healthy     # nginx 기동 시 upstream(backend) 이름을 찾을 수 있도록
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]
       interval: 15s
       timeout: 5s
       retries: 3
