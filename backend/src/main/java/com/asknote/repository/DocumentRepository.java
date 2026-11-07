@@ -10,8 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface DocumentRepository extends JpaRepository<Document, Long> {
 
-    /** 내 자료 목록 (최신순, 페이징 없음) */
-    List<Document> findByMemberIdOrderByCreatedAtDesc(Long memberId);
+    /** 내 자료 목록 (최신순, 페이징 없음) — 같은 초에 올린 자료는 id 큰 순 */
+    List<Document> findByMemberIdOrderByCreatedAtDescIdDesc(Long memberId);
 
     /** 질문 시 AI 에 넘길 READY 문서 id 목록 */
     @Query("select d.id from Document d where d.member.id = :memberId and d.status = :status")

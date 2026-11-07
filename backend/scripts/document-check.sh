@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 자료 업로드 · 삭제 점검 (Backend + 가짜 AI 서버 실행 후, 저장소 최상위에서: bash backend/scripts/document-check.sh)
+# 자료 목록 · 업로드 · 삭제 점검 (Backend + 가짜 AI 서버 실행 후, 저장소 최상위에서: bash backend/scripts/document-check.sh)
 # 상태 코드 · 오류 코드만 출력 (토큰 값은 출력하지 않음)
 B=${BASE_URL:-http://localhost:8080}
 AI=${AI_URL:-http://127.0.0.1:8000}
@@ -29,6 +29,16 @@ check "업로드 (가짜 AI mode=ok 기준)" 201 "$UP"
 ID=$(sed '$d' <<<"$UP" | grep -o '"id":[0-9]*' | cut -d: -f2)
 echo "     업로드 응답 status: $(sed '$d' <<<"$UP" | grep -o '"status":"[A-Z]*"' | cut -d'"' -f4), id=$ID"
 echo "     AI 적재 목록: $(curl -s $AI/debug/documents)"
+
+LS=$(req $B/api/documents -H "Authorization: Bearer $ST")
+check "내 자료 목록"                    200 "$LS"
+FIRST=$(sed '$d' <<<"$LS" | grep -o '"id":[0-9]*' | head -n1 | cut -d: -f2)
+[ -n "$ID" ] && [ "$FIRST" = "$ID" ] && r=OK || r=FAIL
+printf '%-4s %-40s 기대 %s / 실제 %s\n' "$r" "목록 첫 번째 = 방금 올린 자료 (최신순)" "$ID" "$FIRST"
+OL=$(req $B/api/documents -H "Authorization: Bearer $OT")
+[ -n "$ID" ] && ! grep -q "\"id\":$ID[,}]" <<<"$(sed '$d' <<<"$OL")" && r=OK || r=FAIL
+printf '%-4s %-40s\n' "$r" "남의 목록에 내 자료 안 보임 (other)"
+check "토큰 없이 목록"                  401 "$(req $B/api/documents)"
 
 check "토큰 없이 업로드"                401 "$(cd "$TMP" && req -X POST $B/api/documents -F "file=@sample.pdf")"
 check "없는 자료 삭제"                  404 "$(req -X DELETE $B/api/documents/999999 -H "Authorization: Bearer $ST")"
