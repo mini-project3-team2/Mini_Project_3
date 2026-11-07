@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 질문 SSE 중계 · RAG 소유자 우회 점검 (Backend + 가짜 AI 서버 실행 후, 저장소 최상위에서: bash backend/scripts/chat-check.sh)
+# 질문 SSE 중계 · RAG 소유자 우회 · 기록 목록 점검 (Backend + 가짜 AI 서버 실행 후, 저장소 최상위에서: bash backend/scripts/chat-check.sh)
 # 토큰 값은 출력하지 않음
 B=${BASE_URL:-http://localhost:8080}
 J="Content-Type: application/json"
@@ -37,4 +37,23 @@ echo "   자료 없는 회원     → $(code -X POST $B/api/chats/stream -H "$J"
 echo "== 3. RAG 소유자 우회: student 토큰 + body 에 other 의 uuid"
 ask "$ST" "{\"question\":\"다른 사람 자료 보여줘\",\"ownerUuid\":\"$OTHER_UUID\"}" | grep -A1 "event:sources"
 echo "   → sources 에 other_SECRET.pdf 가 보이면 취약, student_note.pdf 만 보이면 조치됨"
+
+echo "== 4. 질문 기록 목록 (GET /api/chats)"
+ids() { grep -o '"id":[0-9]*' <<<"$1" | cut -d: -f2 | tr '\n' ' '; }
+MY=$(curl -s "$B/api/chats?page=0&size=10" -H "Authorization: Bearer $ST")
+echo "   내 기록 page=0&size=10 → $(code "$B/api/chats?page=0&size=10" -H "Authorization: Bearer $ST") (기대 200)"
+echo "   기본값(파라미터 없음)  → $(code "$B/api/chats" -H "Authorization: Bearer $ST") (기대 200)"
+echo "   페이지 정보            → $(grep -o '"page":[0-9]*,"size":[0-9]*,"totalElements":[0-9]*,"totalPages":[0-9]*' <<<"$MY")"
+echo "   내 기록 id (최신순)    → $(ids "$MY")"
+echo "   page=-1               → $(code "$B/api/chats?page=-1" -H "Authorization: Bearer $ST") (기대 400)"
+echo "   size=0                → $(code "$B/api/chats?size=0" -H "Authorization: Bearer $ST") (기대 400)"
+echo "   size=51               → $(code "$B/api/chats?size=51" -H "Authorization: Bearer $ST") (기대 400)"
+echo "   page=abc              → $(code "$B/api/chats?page=abc" -H "Authorization: Bearer $ST") (기대 400)"
+echo "   토큰 없음             → $(code "$B/api/chats") (기대 401)"
+OTH=$(curl -s "$B/api/chats?size=50" -H "Authorization: Bearer $OT")
+ALL=$(curl -s "$B/api/chats?size=50" -H "Authorization: Bearer $ST")
+LEAK=""
+for i in $(ids "$OTH"); do grep -qw "$i" <<<"$(ids "$ALL")" && LEAK="$LEAK $i"; done
+[ -z "$LEAK" ] && echo "   OK   other 기록 id($(ids "$OTH")) 가 student 목록에 없음" \
+               || echo "   FAIL other 기록이 student 목록에 보임:$LEAK"
 rm -rf "$TMP"
