@@ -1,0 +1,26 @@
+
+Java (jar)
+==========
+Total: 4 (UNKNOWN: 0, LOW: 1, MEDIUM: 3, HIGH: 0, CRITICAL: 0)
+
+┌──────────────────────────────────────┬─────────────────┬──────────┬────────┬───────────────────┬──────────────────────┬────────────────────────────────────────────────────────────┐
+│               Library                │  Vulnerability  │ Severity │ Status │ Installed Version │    Fixed Version     │                           Title                            │
+├──────────────────────────────────────┼─────────────────┼──────────┼────────┼───────────────────┼──────────────────────┼────────────────────────────────────────────────────────────┤
+│ org.mariadb.jdbc:mariadb-java-client │ CVE-2026-119210 │ MEDIUM   │ fixed  │ 3.5.10            │ 3.3.7, 3.4.5, 3.5.11 │ org.mariadb.jdbc/mariadb-java-client: MariaDB Connector/J: │
+│                                      │                 │          │        │                   │                      │ Information disclosure via bypass of local file validation │
+│                                      │                 │          │        │                   │                      │ https://avd.aquasec.com/nvd/cve-2026-119210                │
+│                                      ├─────────────────┤          │        │                   │                      ├────────────────────────────────────────────────────────────┤
+│                                      │ CVE-2026-119276 │          │        │                   │                      │ org.mariadb.jdbc/mariadb-java-client: mariadb-java-client: │
+│                                      │                 │          │        │                   │                      │ Denial of Service via uncontrolled memory allocation       │
+│                                      │                 │          │        │                   │                      │ https://avd.aquasec.com/nvd/cve-2026-119276                │
+│                                      ├─────────────────┤          │        │                   │                      ├────────────────────────────────────────────────────────────┤
+│                                      │ CVE-2026-119281 │          │        │                   │                      │ org.mariadb.jdbc/mariadb-java-client: mariadb-connector-j: │
+│                                      │                 │          │        │                   │                      │ Security feature bypass via unvalidated character set      │
+│                                      │                 │          │        │                   │                      │ changes                                                    │
+│                                      │                 │          │        │                   │                      │ https://avd.aquasec.com/nvd/cve-2026-119281                │
+│                                      ├─────────────────┼──────────┤        │                   │                      ├────────────────────────────────────────────────────────────┤
+│                                      │ CVE-2026-119280 │ LOW      │        │                   │                      │ org.mariadb.jdbc/mariadb-java-client: MariaDB Connector/J: │
+│                                      │                 │          │        │                   │                      │ Denial of Service via unvalidated lengths during XA        │
+│                                      │                 │          │        │                   │                      │ recovery...                                                │
+│                                      │                 │          │        │                   │                      │ https://avd.aquasec.com/nvd/cve-2026-119280                │
+└──────────────────────────────────────┴─────────────────┴──────────┴────────┴───────────────────┴──────────────────────┴────────────────────────────────────────────────────────────┘
