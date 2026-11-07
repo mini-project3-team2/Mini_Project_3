@@ -1,9 +1,19 @@
-:root {
-  font-family: system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif;
-  color: #1f2937;
-  background: #fff;
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: system-ui, 'Segoe UI', 'Malgun Gothic', sans-serif;
+
+  --color-bg: #f6f5f1;
+  --color-accent: #0f766e;
+  --color-ink: #1b1f23;
+  --color-line: #e3e1da;
+
+  --color-indexing-bg: #fff4db;
+  --color-indexing: #8a5a00;
+  --color-ready-bg: #e6f2f0;
+  --color-ready: #0f766e;
 }
 
 body {
-  margin: 0;
+  @apply bg-bg font-sans text-ink;
 }
