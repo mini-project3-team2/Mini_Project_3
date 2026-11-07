@@ -73,4 +73,5 @@ mock-data/
 - **Backend:** 테스트 기대값으로 `responses/`를, 가짜 AI Module 응답으로 `internal/`을 씁니다
 - **AI Module:** `internal/` 형식이 실제 응답과 같아야 합니다 (`done`은 `{}`, `error`는 `{"code": ...}`)
 - **내부 적재 오류:** `internal/ingest.*.json`에 400·401·409·413·422·500·503 예시를 제공합니다. 422는 PDF 추출 실패에만 사용합니다. Backend의 현재 외부 오류 매핑은 API 설계서 6.1을 참고하세요.
+- **내부 질의 오류:** `internal/query.400-invalid-input.json`·`query.401-unauthorized.json`에 스트림 시작 전 오류(입력 검증 실패 `{"error":"INVALID_INPUT"}`, 인증 실패 `{"detail":"Unauthorized"}`) 예시를 제공합니다. 스트림이 시작된 뒤의 임베딩·검색·LLM 오류는 SSE `error`(`query-stream-error.txt`)로 전달합니다. 상세는 API 설계서 6.3을 참고하세요.
 - **PDF 적재 검증:** `pdfs/`의 PDF를 사용합니다. JSON 응답에 등장하는 예시 파일명과는 별개의 실제 검증 자료이며, `gen.py`로 생성되지 않습니다.
