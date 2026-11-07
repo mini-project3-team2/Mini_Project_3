@@ -181,7 +181,7 @@ uv self update 0.12.23
 | Backend | JDK 17 - Temurin <https://adoptium.net/> |
 | Frontend | Node.js 24 LTS - <https://nodejs.org/> (또는 nvm-windows / fnm) |
 | AI | 추가 설치 없음 (임베딩은 OpenAI API · `.env` 에 `OPENAI_API_KEY` 필요) |
-| 보안 점검 (Day 4) | Burp Suite |
+| 보안 점검 (11/10 화) | Burp Suite |
 | DevOps | Docker Hub 계정·Access Token, AWS 계정·EC2 키페어 |
 
 **설치 확인**
@@ -249,8 +249,8 @@ docker compose ps         # database 가 (healthy) 이면 완료
 | 이미 **생성되어 병합됨** | [합류하는 팀원](#합류하는-팀원) 명령만 실행 |
 
 > - 각 폴더의 기존 파일(`.dockerignore`, `.env.example`, `.nvmrc`, `.python-version`)을 **지우지 마세요.**
-> - 2차 프로젝트·수업 실습 코드를 **재사용해도 됩니다** (가이드 1.2). 원본의 `.git` 폴더를 빼고 복사한 뒤 아래 설정을 맞춥니다.
-> - **Day 2 부터 인증·소유자 검증을 함께 구현**합니다. (가이드 4장 - 보안을 마지막에 몰지 않음)
+> - 수업 실습 코드를 **재사용해도 됩니다** (가이드 1.2). 원본의 `.git` 폴더를 빼고 복사한 뒤 아래 설정을 맞춥니다.
+> - **개발 초기부터 인증·소유자 검증을 함께 구현**합니다. (가이드 4장 - 보안을 마지막에 몰지 않음)
 
 ### 합류하는 팀원
 
@@ -286,7 +286,7 @@ git checkout -b feature/<기능>
    | Jackson 3 | 패키지 `com.fasterxml.jackson` → `tools.jackson` |
    | Security 7 | `SecurityConfig` 이전 시 삭제된 API 컴파일 오류 확인 |
 
-5. **`application.yml`**:
+5. **`application.yaml`**:
    ```yaml
    spring:
      config:
@@ -315,7 +315,7 @@ git checkout -b feature/<기능>
    | 실행 위치 | `DB_HOST` | `DB_PORT` | `AI_SERVICE_URL` |
    |---|---|---|---|
    | PC 에서 직접 | `localhost` | `DB_LOCAL_PORT` 값 | `http://localhost:8000` |
-   | Compose 안 (Day 3~) | `database` | `3306` | `http://ai-service:8000` |
+   | Compose 안 (통합 이후) | `database` | `3306` | `http://ai-service:8000` |
 
    - Actuator: **`/actuator/health` 만 `permitAll()`** (Docker HEALTHCHECK 용), 나머지 `/actuator/**` 는 ADMIN 전용. health 규칙을 먼저 작성합니다.
 6. 패키지: `controller/` `service/` `repository/` `entity/` `dto/` `config/`
@@ -616,7 +616,7 @@ Issue 템플릿 항목 (`.github/ISSUE_TEMPLATE/security.md`)
 | `pre-commit` 명령을 찾을 수 없음 | `uv tool update-shell` 후 터미널 재시작 |
 | 첫 커밋이 실패하고 파일이 수정됨 | pre-commit 이 줄바꿈 등을 자동 수정한 것 → `git add` 후 다시 커밋 |
 | 커밋이 `gitleaks` 로 막힘 | 키·토큰이 포함됨 → 해당 값 제거 (캡처·문서의 JWT 는 마스킹) |
-| Spring 기동 시 `${JWT_SECRET}` 을 못 찾음 | `application.yml` 의 `spring.config.import` 누락 또는 `.env` 위치가 최상위가 아님 |
+| Spring 기동 시 `${JWT_SECRET}` 을 못 찾음 | `application.yaml` 의 `spring.config.import` 누락 또는 `.env` 위치가 최상위가 아님 |
 | Docker 빌드 시 `./mvnw: Permission denied` | `git update-index --add --chmod=+x backend/mvnw` 후 커밋 |
 | Vite 생성 후 `.dockerignore` 등이 사라짐 | `Remove existing files` 를 선택함 → `git checkout -- frontend/` 로 복구 후 `Ignore files` 로 다시 생성 |
 | 적재·질문이 `EMBEDDING_ERROR` 로 실패 | `OPENAI_API_KEY` 누락·오류(401) 또는 호출 한도 초과(429) → `.env` 키 확인 후 잠시 뒤 재시도 |
