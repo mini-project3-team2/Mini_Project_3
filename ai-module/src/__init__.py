@@ -1,0 +1,1 @@
+"""AskNote AI module."""
