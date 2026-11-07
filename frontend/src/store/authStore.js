@@ -23,13 +23,14 @@ export const useAuthStore = create((set) => ({
   accessToken: null,
   member: null,
   ready: false,
+  expired: false,
   setAuth: (d) => {
     setRefresh(d.refreshToken)
-    set({ accessToken: d.accessToken, member: d.member ?? null })
+    set({ accessToken: d.accessToken, member: d.member ?? null, expired: false })
   },
-  clear: () => {
+  clear: ({ expired = false } = {}) => {
     setRefresh(null)
-    set({ accessToken: null, member: null })
+    set({ accessToken: null, member: null, expired })
   },
   setReady: () => set({ ready: true }),
 }))

@@ -9,12 +9,16 @@ export const api = axios.create({ baseURL: base, timeout: 60000 })
 const auth = () => useAuthStore.getState()
 
 let pending = null
+let leaving = false
+
+// 로그아웃 중이 아니고 로그인 상태였으면 세션 만료로 표시
+const expire = (was) => auth().clear({ expired: was && !leaving })
 
 export function refresh() {
   if (pending) return pending
   const rt = getRefresh()
   if (!rt) {
-    auth().clear()
+    expire(!!auth().accessToken)
     return Promise.reject(new Error('NO_REFRESH_TOKEN'))
   }
   pending = axios
@@ -24,7 +28,7 @@ export function refresh() {
       return data.data.accessToken
     })
     .catch((e) => {
-      auth().clear()
+      expire(true)
       throw e
     })
     .finally(() => {
@@ -59,12 +63,23 @@ api.interceptors.response.use(
   },
 )
 
+export async function login(email, password) {
+  const { data } = await api.post('/auth/login', { email, password })
+  auth().setAuth(data.data)
+}
+
+export async function signup(email, password) {
+  const { data } = await api.post('/auth/signup', { email, password })
+  return data.data
+}
+
 export async function logout() {
   const send = () => {
     const rt = getRefresh()
     if (!rt) return Promise.resolve()
     return api.post('/auth/logout', { refreshToken: rt }, { _skip: true })
   }
+  leaving = true
   try {
     await send()
   } catch (e) {
@@ -77,6 +92,7 @@ export async function logout() {
       }
     }
   } finally {
+    leaving = false
     auth().clear()
   }
 }
