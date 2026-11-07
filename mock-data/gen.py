@@ -127,6 +127,9 @@ for status, code in [
 ]:
     w(f'internal/ingest.{status}-{code.lower().replace("_", "-")}.json', {'error':code})
 w('internal/ingest.401-unauthorized.json', {'detail':'Unauthorized'})
+# 질의 스트림 시작 전 오류 (API 설계서 6.3)
+w('internal/query.400-invalid-input.json', {'error':'INVALID_INPUT'})
+w('internal/query.401-unauthorized.json', {'detail':'Unauthorized'})
 wt('internal/query-stream-success.txt',sse([("sources",[S1(12),S1(14)])]+[("token",{"text":t}) for t in tok]+[("done",{})]))
 wt('internal/query-stream-error.txt',sse([("sources",[S2(31)]),("token",{"text":"토큰 원문이 "}),("error",{"code":"LLM_ERROR"})]))
 print("ok")
