@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 질문 SSE 중계 · RAG 소유자 우회 · 기록 목록 점검 (Backend + 가짜 AI 서버 실행 후, 저장소 최상위에서: bash backend/scripts/chat-check.sh)
+# 질문 SSE 중계 · RAG 소유자 우회 · 기록 목록 · 피드백 점검 (Backend + 가짜 AI 서버 실행 후, 저장소 최상위에서: bash backend/scripts/chat-check.sh)
 # 토큰 값은 출력하지 않음
 B=${BASE_URL:-http://localhost:8080}
 J="Content-Type: application/json"
@@ -56,4 +56,28 @@ LEAK=""
 for i in $(ids "$OTH"); do grep -qw "$i" <<<"$(ids "$ALL")" && LEAK="$LEAK $i"; done
 [ -z "$LEAK" ] && echo "   OK   other 기록 id($(ids "$OTH")) 가 student 목록에 없음" \
                || echo "   FAIL other 기록이 student 목록에 보임:$LEAK"
+
+echo "== 5. 답변 피드백 (PATCH /api/chats/{id}/feedback)"
+MYID=$(ids "$MY" | cut -d' ' -f1)
+OTHID=$(ids "$OTH" | cut -d' ' -f1)
+fb() { # 토큰 기록id JSON본문 → "상태코드 응답코드/피드백"
+  local r; r=$(curl -s -w '\n%{http_code}' -X PATCH "$B/api/chats/$2/feedback" -H "$J" ${1:+-H "Authorization: Bearer $1"} -d "$3")
+  echo "$(tail -n1 <<<"$r") $(sed '$d' <<<"$r" | grep -o '"code":"[A-Z_]*"\|"feedback":"[A-Z_]*"' | cut -d'"' -f4)"
+}
+echo "   (내 기록 id=$MYID, other 기록 id=$OTHID)"
+echo "   HELPFUL               → $(fb "$ST" "$MYID" '{"feedback":"HELPFUL"}') (기대 200 HELPFUL)"
+echo "   NOT_HELPFUL 로 변경   → $(fb "$ST" "$MYID" '{"feedback":"NOT_HELPFUL"}') (기대 200 NOT_HELPFUL)"
+echo "   같은 값 다시          → $(fb "$ST" "$MYID" '{"feedback":"NOT_HELPFUL"}') (기대 200 NOT_HELPFUL)"
+echo "   잘못된 값 GOOD        → $(fb "$ST" "$MYID" '{"feedback":"GOOD"}') (기대 400 INVALID_INPUT)"
+echo "   소문자 helpful        → $(fb "$ST" "$MYID" '{"feedback":"helpful"}') (기대 400 INVALID_INPUT)"
+echo "   숫자 0                → $(fb "$ST" "$MYID" '{"feedback":0}') (기대 400 INVALID_INPUT)"
+echo "   숫자 1                → $(fb "$ST" "$MYID" '{"feedback":1}') (기대 400 INVALID_INPUT)"
+echo "   값 없음 {}            → $(fb "$ST" "$MYID" '{}') (기대 400 INVALID_INPUT)"
+echo "   null                  → $(fb "$ST" "$MYID" '{"feedback":null}') (기대 400 INVALID_INPUT)"
+echo "   깨진 JSON             → $(fb "$ST" "$MYID" '{"feedback":') (기대 400 INVALID_INPUT)"
+echo "   id=abc                → $(fb "$ST" abc '{"feedback":"HELPFUL"}') (기대 400 INVALID_INPUT)"
+echo "   남의 기록 (IDOR)      → $(fb "$ST" "$OTHID" '{"feedback":"NOT_HELPFUL"}') (기대 403 FORBIDDEN)"
+echo "   없는 기록             → $(fb "$ST" 999999 '{"feedback":"HELPFUL"}') (기대 404 CHAT_NOT_FOUND)"
+echo "   토큰 없음             → $(fb "" "$MYID" '{"feedback":"HELPFUL"}') (기대 401 UNAUTHORIZED)"
+echo "   → 403 은 Backend 로그에 'AUDIT OWNERSHIP_DENIED ... target=PATCH /api/chats/$OTHID/feedback' 가 남아야 함"
 rm -rf "$TMP"
