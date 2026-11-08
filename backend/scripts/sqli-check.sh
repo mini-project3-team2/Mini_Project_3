@@ -32,7 +32,7 @@ check "회원가입 이메일에 ' OR '1'='1"                   400 "$(post /api
 
 ST=$(post /api/auth/login '{"email":"student@test.com","password":"Test1234!"}' | sed '$d' | sed -E 's/.*"accessToken":"([^"]+)".*/\1/')
 check "자료 삭제 경로에 1 OR 1=1"                        400 "$(curl -s -w '\n%{http_code}' -X DELETE "$B/api/documents/1%20OR%201=1" -H "Authorization: Bearer $ST")"
-# TODO: 기록 목록(GET /api/chats) 구현 후 page 파라미터 조작(1;DROP TABLE) → 400 확인 추가
+check "기록 목록 page 파라미터에 1;DROP TABLE"           400 "$(curl -s -w '\n%{http_code}' "$B/api/chats?page=1%3BDROP%20TABLE%20members" -H "Authorization: Bearer $ST")"
 
 printf '%s' '{"question":"'"'"'; DROP TABLE members; -- 테이블 삭제 시도"}' > "$TMP/q.json"
 Q=$(cd "$TMP" && curl -N -s -o "$TMP/stream.txt" -w '%{http_code}' -X POST "$B/api/chats/stream" -H "$J" -H "Authorization: Bearer $ST" --data-binary @q.json)
