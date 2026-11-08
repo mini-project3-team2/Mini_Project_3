@@ -8,7 +8,7 @@ ValidationError가 나면 QueryInputError로 바꿔 400 {"error":"INVALID_INPUT"
 import re
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
 
 QUESTION_MIN = 1
 QUESTION_MAX = 1000
@@ -32,16 +32,17 @@ class QueryRequest(BaseModel):
     # camelCase 본문(question/ownerUuid/documentIds)을 받고, 정의되지 않은 필드는 거부한다.
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    question: str
-    owner_uuid: str = Field(alias="ownerUuid")
-    document_ids: list[int] = Field(alias="documentIds")
+    # strict 타입으로 받아 lax 강제 변환을 차단한다. 예) "12"→12, True→1, 12.0→12
+    # 같은 자동 변환을 막는다(API 설계서 6.3: 정수 배열 / 문자열 question·ownerUuid).
+    question: StrictStr
+    owner_uuid: StrictStr = Field(alias="ownerUuid")
+    document_ids: list[StrictInt] = Field(alias="documentIds")
 
     @field_validator("question")
     @classmethod
     def _check_question(cls, value: str) -> str:
-        # 앞뒤 공백 제거 후 길이를 센다. 저장은 정리된 값으로 한다(프롬프트에 그대로 사용).
-        if not isinstance(value, str):
-            raise ValueError("question")
+        # 타입은 StrictStr이 보장. 여기서는 앞뒤 공백 제거 후 길이만 검사하고,
+        # 저장은 정리된 값으로 한다(프롬프트에 그대로 사용).
         trimmed = value.strip()
         if not (QUESTION_MIN <= len(trimmed) <= QUESTION_MAX):
             raise ValueError("question")
@@ -51,19 +52,18 @@ class QueryRequest(BaseModel):
     @classmethod
     def _check_owner_uuid(cls, value: str) -> str:
         # 하이픈 포함 UUID 형태만 허용하고 소문자 표준형으로 정규화한다(검색 필터와 일치).
-        if not isinstance(value, str) or not _UUID_RE.fullmatch(value):
+        if not _UUID_RE.fullmatch(value):
             raise ValueError("ownerUuid")
         return str(UUID(value))
 
     @field_validator("document_ids")
     @classmethod
     def _check_document_ids(cls, value: list[int]) -> list[int]:
-        # 1개 이상의 정수 배열. 각 값은 1~Java Long 상한. bool은 int가 아니다.
-        if not isinstance(value, list) or not value:
+        # 요소 타입(순수 int, bool·문자열·float 제외)은 StrictInt가 보장한다.
+        # 여기서는 개수(1개 이상)와 각 값의 범위(1~Java Long 상한)만 검사한다.
+        if not value:
             raise ValueError("documentIds")
         for item in value:
-            if isinstance(item, bool) or type(item) is not int:
-                raise ValueError("documentIds")
             if not (1 <= item <= DOCUMENT_ID_MAX):
                 raise ValueError("documentIds")
         return value
