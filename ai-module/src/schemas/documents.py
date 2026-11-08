@@ -11,6 +11,14 @@ from starlette.datastructures import FormData, UploadFile
 from src.services.ingest import IngestionError
 
 
+def parse_document_identity(doc_id: str, owner: str) -> tuple[int, str]:
+    if not re.fullmatch(r"[0-9]{1,19}", doc_id) or not 0 < int(doc_id) <= 9223372036854775807:
+        raise IngestionError("INVALID_INPUT", 400)
+    if not re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", owner):
+        raise IngestionError("INVALID_INPUT", 400)
+    return int(doc_id), str(UUID(owner))
+
+
 @dataclass(frozen=True)
 class IngestInput:
     file: UploadFile
@@ -27,10 +35,7 @@ class IngestInput:
         if (not isinstance(upload, UploadFile)
                 or not all(isinstance(value, str) for value in (doc_id, owner, name))):
             raise IngestionError("INVALID_INPUT", 400)
-        if not re.fullmatch(r"[0-9]{1,19}", doc_id) or not 0 < int(doc_id) <= 9223372036854775807:
-            raise IngestionError("INVALID_INPUT", 400)
-        if not re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", owner):
-            raise IngestionError("INVALID_INPUT", 400)
+        document_id, owner_uuid = parse_document_identity(doc_id, owner)
         try:
             name_units = len(name.encode("utf-16-le")) // 2
         except UnicodeEncodeError:
@@ -38,7 +43,7 @@ class IngestInput:
         if (not name.strip() or name_units > 255 or "/" in name or "\\" in name
                 or any(unicodedata.category(char) == "Cc" for char in name)):
             raise IngestionError("INVALID_INPUT", 400)
-        return cls(upload, int(doc_id), str(UUID(owner)), name)
+        return cls(upload, document_id, owner_uuid, name)
 
 
 class IngestResponse(BaseModel):

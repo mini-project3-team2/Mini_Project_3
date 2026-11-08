@@ -77,7 +77,14 @@ def main():
                                           data=data | {"documentId": "0"}, files=files)
                     assert invalid.status_code == 400
                     assert invalid.json() == {"error": "INVALID_INPUT"}
-                    assert calls == [2]
+                    second = client.post("/internal/documents", headers=headers,
+                                         data=data | {"documentId": "13"}, files=files)
+                    assert second.status_code == 200
+                    for _ in range(2):
+                        deleted = client.delete("/internal/documents/13", headers=headers,
+                                                params={"ownerUuid": data["ownerUuid"]})
+                        assert deleted.status_code == 204 and deleted.content == b""
+                    assert calls == [2, 2]
             finally:
                 server.should_exit = True
                 thread.join(timeout=15)
@@ -89,6 +96,7 @@ def main():
             async with open_collection(settings) as collection:
                 rows = collection.get(include=["metadatas"])
                 assert len(rows["ids"]) == 2
+                assert all(meta["document_id"] == 12 for meta in rows["metadatas"])
                 pages = sorted(metadata["page"] for metadata in rows["metadatas"])
                 assert pages == [1, 3]
                 return pages
@@ -100,6 +108,7 @@ def main():
         "health_status": 200, "unauthorized_status": 401,
         "ingest_status": 200, "chunk_count": 2,
         "duplicate_status": 409, "invalid_input_status": 400,
+        "delete_and_retry_status": 204, "deleted_chunks_after_reopen": 0,
         "embedding_batch_sizes": calls, "pages_after_storage_reopen": pages,
         "server_stopped": True, "temporary_storage_removed": True,
     }, indent=2))

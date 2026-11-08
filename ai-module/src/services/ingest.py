@@ -9,7 +9,8 @@ import logging
 import math
 import threading
 import time
-from dataclasses import dataclass
+from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from uuid import UUID
 
 from langchain_core.documents import Document
@@ -42,6 +43,13 @@ def _existing(collection, where):
         return collection.get(where=where, limit=1, include=[])["ids"]
     except Exception:
         raise IngestionError("STORAGE_ERROR") from None
+
+
+def delete_document_chunks(collection, owner_uuid, document_id):
+    where = document_filter(owner_uuid, document_id)
+    collection.delete(where=where)
+    if _existing(collection, where):
+        raise IngestionError("STORAGE_ERROR")
 
 
 def _cleanup(collection, ids, where):
@@ -105,10 +113,45 @@ async def _drain(task):
     return task.result()
 
 
+@dataclass
+class _DocumentState:
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    users: int = 0
+    uploader: asyncio.Task | None = None
+
+
 class IngestionCoordinator:
     def __init__(self):
-        self._active = set()
-        self._guard = threading.Lock()
+        self._documents = {}
+
+    @asynccontextmanager
+    async def document_operation(self, owner_uuid, document_id, *, deleting=False):
+        """One application event loop. Deletes queue, competing uploads receive 409."""
+        key = (owner_uuid, document_id)
+        state = self._documents.get(key)
+        task = asyncio.current_task()
+        if state is None:
+            state = self._documents[key] = _DocumentState()
+        elif not deleting:
+            if state.uploader is not task:
+                raise IngestionError("INGESTION_IN_PROGRESS", 409)
+            # The HTTP handler already reserved this document before PDF preparation.
+            yield
+            return
+
+        state.users += 1
+        try:
+            async with state.lock:
+                if not deleting:
+                    state.uploader = task
+                try:
+                    yield
+                finally:
+                    state.uploader = None
+        finally:
+            state.users -= 1
+            if not state.users:
+                del self._documents[key]
 
     async def ingest(self, chunks, embeddings, collection,
                      *, budget_seconds=DEFAULT_BUDGET_SECONDS):
@@ -142,14 +185,9 @@ class IngestionCoordinator:
                                          metadata=chunk.metadata | {"owner_uuid": owner}))
         except (KeyError, ValueError, TypeError, AttributeError):
             raise IngestionError("INVALID_INPUT", 400) from None
-        key = (owner, doc_id)
-        with self._guard:
-            if key in self._active:
-                raise IngestionError("INGESTION_IN_PROGRESS", 409)
-            self._active.add(key)
         where = document_filter(owner, doc_id)
         cancelled = threading.Event()
-        try:
+        async with self.document_operation(owner, doc_id):
             _check_budget(deadline, cancelled)
             check = asyncio.create_task(asyncio.to_thread(_existing, collection, where))
             try:
@@ -182,6 +220,3 @@ class IngestionCoordinator:
                     await _drain(cleanup)
                 raise
             return IngestionResult(doc_id, len(prepared))
-        finally:
-            with self._guard:
-                self._active.remove(key)
