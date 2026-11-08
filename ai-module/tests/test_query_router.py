@@ -165,7 +165,7 @@ class QueryRouterTests(unittest.TestCase):
 
     def test_all_filtered_by_distance_falls_back_to_refusal(self):
         # 질문은 axis 0로 임베딩된다. 소유자·문서는 맞지만 벡터가 직교(axis 1)라
-        # 거리 2.0 → 기준 1.0 초과로 관련도 필터에 전부 걸러진다.
+        # 거리 2.0 → MAX_DISTANCE(1.35) 초과로 관련도 필터에 전부 걸러진다.
         self.seed("far", owner=OWNER, document_id=12, name="a.pdf", page=1, axis=1)
         build = patch("src.api.routers.query.build_llm")
         with build as build_llm:
@@ -246,7 +246,7 @@ class ClientDisconnectTests(unittest.IsolatedAsyncioTestCase):
                         cancelled["value"] = True
                 return gen()
 
-        # 관련도 필터를 통과하도록 기준(1.0) 이내 거리를 명시한다.
+        # 관련도 필터를 통과하도록 기준(MAX_DISTANCE) 이내 거리를 명시한다.
         hit = SimpleNamespace(document_id=1, document_name="a.pdf", page=1, text="t", distance=0.1)
 
         async def fake_search(collection, vector, *, owner_uuid, document_ids, k=4):

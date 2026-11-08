@@ -65,13 +65,16 @@ logger = logging.getLogger(__name__)
 # 검색 기본 k. DB 설계서 4장 기준(similarity, k=4). 코드 상수로 둔다.
 DEFAULT_K = 4
 
-# 관련도 필터 임시 임계값. 컬렉션 거리 함수는 Chroma 기본 L2(제곱 유클리드)이고,
-# 임베딩이 정규화 단위 벡터라 실질 범위는 0~2다(L2² = 2 - 2·cos, 유사도 0.5 ≈ 1.0).
-# "거리 <= MAX_DISTANCE"만 남긴다(작을수록 유사). 로그로 실제 점수를 보고 한 곳에서 조정한다.
-MAX_DISTANCE = 1.0
+# 관련도 필터 임계값. 컬렉션 거리 함수는 Chroma 기본 L2(제곱 유클리드)이고,
+# 임베딩이 정규화 단위 벡터라 실질 범위는 0~2다(L2² = 2 - 2·cos). "거리 <= MAX_DISTANCE"만
+# 남긴다(작을수록 유사).
+# 측정 근거(자료 2개·질문 6개, document_ids=[1,2], #53): 관련 있는 질문의 1위 거리는
+# 최대 1.31(케르크호프스의 원리), 관련 없는 질문의 1위 거리는 최소 1.41(파이썬 리스트 정렬).
+# 그 사이값 1.35로 둔다. 자료가 늘면 분포가 겹칠 수 있어 통합 후 재측정이 필요하다.
+MAX_DISTANCE = 1.35
 
-# 검색 결과 점수 로그 레벨. 기준값을 정한 뒤 logging.DEBUG로 낮출 수 있게 한 곳에 둔다.
-SEARCH_LOG_LEVEL = logging.INFO
+# 검색 결과 점수 로그 레벨. 기준값을 정했으므로 DEBUG로 낮춘다(튜닝 시 다시 INFO로).
+SEARCH_LOG_LEVEL = logging.DEBUG
 
 
 class SearchError(Exception):

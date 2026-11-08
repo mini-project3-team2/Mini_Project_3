@@ -120,26 +120,28 @@ class FilterByDistanceTests(unittest.TestCase):
         ]
 
     def test_drops_hits_beyond_threshold(self):
-        # 기준 1.0: 0.4·1.0은 유지(이하), 1.4·2.0은 제거(초과).
-        hits = self.make_hits([0.4, 1.4, 1.0, 2.0])
-        kept = filter_by_distance(hits, max_distance=1.0)
-        self.assertEqual([h.distance for h in kept], [0.4, 1.0])  # 순서 유지, 경계값 포함
+        # 기준값에 상대적으로: 경계(MAX_DISTANCE)·그 이하는 유지, 초과는 제거.
+        below = MAX_DISTANCE - 0.5
+        above = MAX_DISTANCE + 0.5
+        hits = self.make_hits([below, above, MAX_DISTANCE, above + 0.3])
+        kept = filter_by_distance(hits)
+        self.assertEqual([h.distance for h in kept], [below, MAX_DISTANCE])  # 순서 유지, 경계 포함
 
     def test_all_dropped_returns_empty(self):
-        hits = self.make_hits([1.5, 1.8, 2.0])
-        self.assertEqual(filter_by_distance(hits, max_distance=1.0), [])
+        hits = self.make_hits([MAX_DISTANCE + 0.1, MAX_DISTANCE + 0.5, MAX_DISTANCE + 1.0])
+        self.assertEqual(filter_by_distance(hits), [])
 
     def test_all_within_threshold_are_kept(self):
-        hits = self.make_hits([0.1, 0.5, 0.9])
-        kept = filter_by_distance(hits, max_distance=1.0)
+        hits = self.make_hits([0.1, MAX_DISTANCE - 0.3, MAX_DISTANCE])
+        kept = filter_by_distance(hits)
         self.assertEqual(len(kept), 3)
         self.assertEqual(kept, hits)  # 아무것도 버리지 않고 순서 그대로
 
-    def test_default_threshold_is_used(self):
-        # 기본값(MAX_DISTANCE=1.0)으로 호출해도 경계 동작이 같은지 확인.
-        hits = self.make_hits([0.9, 1.1])
+    def test_boundary_is_inclusive_and_just_above_is_dropped(self):
+        # 경계값(=MAX_DISTANCE)은 유지, 바로 초과분은 제거되는지 확인.
+        hits = self.make_hits([MAX_DISTANCE, MAX_DISTANCE + 0.01])
         kept = filter_by_distance(hits)
-        self.assertEqual([h.distance for h in kept], [0.9])
+        self.assertEqual([h.distance for h in kept], [MAX_DISTANCE])
 
 
 if __name__ == "__main__":
