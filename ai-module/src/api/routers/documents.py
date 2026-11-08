@@ -74,34 +74,9 @@ async def ingest_document(request: Request):
         form_request = Request(request.scope, receive=limited_receive)
         async with form_request.form(max_files=1, max_fields=16, max_part_size=1024) as form:
             data = IngestInput.from_form(form)
-            deadline = time.monotonic() + DEFAULT_BUDGET_SECONDS
-            chunks = await finish_before_cancelling(asyncio.to_thread(
-                prepare_pdf, data.file.file, data.file.filename,
-                owner_uuid=data.owner_uuid, document_id=data.document_id,
-                document_name=data.document_name,
-            ))
-
-            def remaining():
-                seconds = deadline - time.monotonic()
-                if seconds <= 0:
-                    raise IngestionError("INGESTION_TIMEOUT")
-                return seconds
-
-            remaining()
             resources = request.app.state.resources
-            try:
-                collection = await finish_before_cancelling(resources.collection())
-            except Exception:
-                raise IngestionError("STORAGE_ERROR") from None
-            remaining()
-            try:
-                embeddings = await finish_before_cancelling(resources.embeddings())
-            except Exception:
-                raise EmbeddingPreparationError("EMBEDDING_ERROR") from None
-            result = await resources.ingestion.ingest(
-                chunks, embeddings, collection, budget_seconds=remaining()
-            )
-            return IngestResponse(documentId=result.document_id, chunkCount=result.chunk_count)
+            async with resources.ingestion.document_operation(data.owner_uuid, data.document_id):
+                return await _ingest_pdf(data, resources)
     except (IngestionError, PdfProcessingError, EmbeddingPreparationError) as error:
         return JSONResponse(status_code=error.status_code, content={"error": error.code})
     except HTTPException as error:
@@ -112,6 +87,36 @@ async def ingest_document(request: Request):
     except Exception:
         logger.error("document_ingestion_internal_error")
         return JSONResponse(status_code=500, content={"error": "INTERNAL_ERROR"})
+
+
+async def _ingest_pdf(data, resources):
+    deadline = time.monotonic() + DEFAULT_BUDGET_SECONDS
+    chunks = await finish_before_cancelling(asyncio.to_thread(
+        prepare_pdf, data.file.file, data.file.filename,
+        owner_uuid=data.owner_uuid, document_id=data.document_id,
+        document_name=data.document_name,
+    ))
+
+    def remaining():
+        seconds = deadline - time.monotonic()
+        if seconds <= 0:
+            raise IngestionError("INGESTION_TIMEOUT")
+        return seconds
+
+    remaining()
+    try:
+        collection = await finish_before_cancelling(resources.collection())
+    except Exception:
+        raise IngestionError("STORAGE_ERROR") from None
+    remaining()
+    try:
+        embeddings = await finish_before_cancelling(resources.embeddings())
+    except Exception:
+        raise EmbeddingPreparationError("EMBEDDING_ERROR") from None
+    result = await resources.ingestion.ingest(
+        chunks, embeddings, collection, budget_seconds=remaining()
+    )
+    return IngestResponse(documentId=result.document_id, chunkCount=result.chunk_count)
 
 
 @router.delete(
@@ -130,9 +135,15 @@ async def delete_document(documentId: str, request: Request):
     except IngestionError as error:
         return JSONResponse(status_code=error.status_code, content={"error": error.code})
 
+    resources = request.app.state.resources
+
+    async def remove_chunks():
+        async with resources.ingestion.document_operation(owner, doc_id, deleting=True):
+            collection = await resources.collection()
+            await asyncio.to_thread(delete_document_chunks, collection, owner, doc_id)
+
     try:
-        collection = await finish_before_cancelling(request.app.state.resources.collection())
-        await finish_before_cancelling(asyncio.to_thread(delete_document_chunks, collection, owner, doc_id))
+        await finish_before_cancelling(remove_chunks())
     except Exception:
         logger.error("document_delete_storage_error")
         return JSONResponse(status_code=503, content={"error": "STORAGE_ERROR"})

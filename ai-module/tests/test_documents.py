@@ -111,6 +111,30 @@ class DocumentApiTests(unittest.TestCase):
     def test_delete_race_during_pdf_preparation(self):
         self.check_delete_race(documents, "prepare_pdf")
 
+    def test_upload_during_delete_conflicts_only_for_same_document(self):
+        self.assertEqual(self.post().status_code, 200)
+        collection = self.client.portal.call(self.app.state.resources.collection)
+        started, release = threading.Event(), threading.Event()
+        original_delete = collection.delete
+
+        def delayed_delete(**kwargs):
+            started.set()
+            if not release.wait(10):
+                raise AssertionError("Delete worker never released")
+            return original_delete(**kwargs)
+
+        with patch.object(collection, "delete", side_effect=delayed_delete), ThreadPoolExecutor(1) as pool:
+            deletion = pool.submit(self.client.delete, "/internal/documents/12", headers=self.headers,
+                                   params={"ownerUuid": self.fields["ownerUuid"]})
+            try:
+                self.assertTrue(started.wait(5))
+                self.assert_error(self.post(), 409, "INGESTION_IN_PROGRESS")
+                self.assertEqual(self.post(fields=self.fields | {"documentId": "13"}).status_code, 200)
+            finally:
+                release.set()
+            self.assertEqual(deletion.result(timeout=5).status_code, 204)
+        self.assertEqual(self.post().status_code, 200)
+
     def test_delete_race_before_storage(self):
         self.check_delete_race(ingest, "_store")
 
