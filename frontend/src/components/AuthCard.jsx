@@ -22,15 +22,6 @@ export default function AuthCard({ title, subtitle, footer, children }) {
   )
 }
 
-export function FormAlert({ children }) {
-  return (
-    <div role="alert" className="mb-5 flex gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-      <ErrorIcon />
-      <p>{children}</p>
-    </div>
-  )
-}
-
 const tones = {
   success: 'bg-ready-bg text-ready',
   info: 'border border-line bg-bg text-ink',

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import AuthCard, { Field, FormAlert, SubmitButton } from '../components/AuthCard'
+import AuthCard, { Field, SubmitButton } from '../components/AuthCard'
+import FormAlert from '../components/FormAlert'
 import { signup } from '../services/api'
 import { errorMessage } from '../utils/errorMessage'
 import { checkEmail, checkPassword } from '../utils/validate'
