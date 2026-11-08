@@ -3,16 +3,20 @@ package com.asknote.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.asknote.common.PageResponse;
+import com.asknote.common.audit.AuditLogger;
 import com.asknote.common.auth.CurrentMemberProvider;
 import com.asknote.common.exception.BusinessException;
 import com.asknote.common.exception.ErrorCode;
+import com.asknote.dto.chat.ChatFeedbackResponse;
 import com.asknote.dto.chat.ChatHistoryResponse;
 import com.asknote.dto.chat.ChatSource;
 import com.asknote.entity.ChatHistory;
@@ -21,6 +25,7 @@ import com.asknote.entity.Member;
 import com.asknote.repository.ChatHistoryRepository;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -28,19 +33,23 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.test.util.ReflectionTestUtils;
 import tools.jackson.databind.json.JsonMapper;
 
 class ChatHistoryServiceTest {
 
     private ChatHistoryRepository chatHistoryRepository;
+    private CurrentMemberProvider currentMemberProvider;
+    private AuditLogger auditLogger;
     private ChatHistoryService chatHistoryService;
 
     @BeforeEach
     void setUp() {
         chatHistoryRepository = mock(ChatHistoryRepository.class);
-        CurrentMemberProvider currentMemberProvider = mock(CurrentMemberProvider.class);
+        currentMemberProvider = mock(CurrentMemberProvider.class);
+        auditLogger = mock(AuditLogger.class);
         chatHistoryService = new ChatHistoryService(chatHistoryRepository, currentMemberProvider,
-                JsonMapper.builder().build());
+                JsonMapper.builder().build(), auditLogger);
 
         Member me = mock(Member.class);
         given(me.getId()).willReturn(7L);
@@ -129,5 +138,64 @@ class ChatHistoryServiceTest {
                     .isEqualTo(ErrorCode.INVALID_INPUT);
         }
         verify(chatHistoryRepository, never()).findByMemberId(any(), any());
+    }
+
+    // ---- 답변 피드백 (PATCH /api/chats/{id}/feedback) ----
+    // 소유자 비교(isOwnedBy)가 실제로 동작해야 하므로 mock 이 아닌 실제 엔티티에 id 만 넣어 사용
+
+    private static Member realMember(long id, String email) {
+        Member m = Member.createMember(email, "encoded");
+        ReflectionTestUtils.setField(m, "id", id);
+        return m;
+    }
+
+    private static ChatHistory realChat(long id, Member owner) {
+        ChatHistory c = new ChatHistory(owner, "질문", "답변", "[]");
+        ReflectionTestUtils.setField(c, "id", id);
+        return c;
+    }
+
+    @Test
+    void 내_기록에_피드백_등록_변경_같은값_재요청() {
+        Member student = realMember(7L, "student@test.com");
+        ChatHistory chat = realChat(31L, student);
+        given(currentMemberProvider.getCurrentMember()).willReturn(student);
+        given(chatHistoryRepository.findWithMemberById(31L)).willReturn(Optional.of(chat));
+
+        ChatFeedbackResponse helpful = chatHistoryService.updateFeedback(31L, Feedback.HELPFUL);
+        assertThat(helpful).isEqualTo(new ChatFeedbackResponse(31L, "HELPFUL"));
+        assertThat(chat.getFeedback()).isEqualTo(Feedback.HELPFUL);
+
+        assertThat(chatHistoryService.updateFeedback(31L, Feedback.NOT_HELPFUL).feedback()).isEqualTo("NOT_HELPFUL");
+        // 같은 값을 다시 보내도 결과가 같음 (PATCH 멱등)
+        assertThat(chatHistoryService.updateFeedback(31L, Feedback.NOT_HELPFUL).feedback()).isEqualTo("NOT_HELPFUL");
+        verifyNoInteractions(auditLogger);
+    }
+
+    @Test
+    void 없는_기록은_CHAT_NOT_FOUND() {
+        given(currentMemberProvider.getCurrentMember()).willReturn(realMember(7L, "student@test.com"));
+        given(chatHistoryRepository.findWithMemberById(999L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> chatHistoryService.updateFeedback(999L, Feedback.HELPFUL))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.CHAT_NOT_FOUND);
+    }
+
+    @Test
+    void 남의_기록은_FORBIDDEN_값은_그대로_감사로그_기록() {
+        Member student = realMember(7L, "student@test.com");
+        Member other = realMember(8L, "other@test.com");
+        ChatHistory othersChat = realChat(13L, other);
+        given(currentMemberProvider.getCurrentMember()).willReturn(student);
+        given(chatHistoryRepository.findWithMemberById(13L)).willReturn(Optional.of(othersChat));
+
+        assertThatThrownBy(() -> chatHistoryService.updateFeedback(13L, Feedback.NOT_HELPFUL))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.FORBIDDEN);
+        assertThat(othersChat.getFeedback()).isNull();
+        verify(auditLogger).ownershipDenied(eq("student@test.com"), contains("/api/chats/13/feedback"));
     }
 }
