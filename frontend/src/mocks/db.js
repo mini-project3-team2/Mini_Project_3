@@ -1,16 +1,28 @@
+import chatSeed from '../../../mock-data/data/chats.json'
+import docSeed from '../../../mock-data/data/documents.json'
 import seed from '../../../mock-data/data/members.json'
 
 const KEY = 'msw:db'
 const ACCESS_TTL = 900
 
+const init = () => ({
+  members: structuredClone(seed),
+  documents: structuredClone(docSeed),
+  chats: structuredClone(chatSeed),
+  access: {},
+  refresh: {},
+  seq: 0,
+})
+
+// 예전에 저장된 값에 없는 항목(chats 등)은 초기값으로 채운다
 function load() {
   try {
     const s = JSON.parse(sessionStorage.getItem(KEY))
-    if (s) return s
+    if (s) return { ...init(), ...s }
   } catch {
     // 저장된 값이 없거나 깨졌으면 초기값 사용
   }
-  return { members: structuredClone(seed), access: {}, refresh: {}, seq: 0 }
+  return init()
 }
 
 export const db = load()

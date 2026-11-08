@@ -1,0 +1,99 @@
+# 이미지 3종(frontend · backend · ai)을 빌드하고 Docker Hub 에 Push 합니다.
+# - main 병합(push)       : 빌드 + Push  → 태그 latest, sha-<짧은 커밋해시>
+# - PR (develop · main 대상): 빌드만 (Push 안 함) → Dockerfile 이 깨지지 않았는지 병합 전에 확인
+# - 수동 실행(workflow_dispatch): main 에서 실행하면 Push, 다른 브랜치면 빌드만
+# 근거: docs/2.시스템아키텍처설계서.md 7장 배포 흐름, 컨테이너 배포 가이드 6장, 평가표 배포(CI)
+#
+# 필요한 Secrets (Settings → Secrets and variables → Actions → Repository secrets)
+#   DOCKERHUB_USERNAME : Docker Hub 사용자명
+#   DOCKERHUB_TOKEN    : Docker Hub Access Token (Read & Write 권한, 비밀번호 사용 금지)
+# 앱 비밀값(JWT_SECRET, OPENAI_API_KEY 등)은 이미지에 넣지 않습니다 → 이 워크플로는 사용하지 않음
+#   (EC2 의 .env 로만 주입. VITE_* 는 번들에 노출되므로 경로(/api)만 build-arg 로 전달)
+#
+# 모든 이미지를 같은 커밋 태그로 함께 빌드합니다 (일부만 빌드하지 않음)
+#   → EC2 에서 IMAGE_TAG=sha-xxxxxxx 하나로 3종을 같은 시점으로 롤백할 수 있게 하기 위함
+name: Docker Build & Push
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read                # 최소 권한 (보안 설계 원칙 Least Privilege)
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # main 에 push(병합)되었거나 main 에서 수동 실행했을 때만 Push
+  PUSH: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+
+jobs:
+  build:
+    name: build (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false          # 하나가 실패해도 나머지 결과는 확인
+      matrix:
+        include:
+          - image: asknote-frontend
+            context: ./frontend
+          - image: asknote-backend
+            context: ./backend
+          - image: asknote-ai
+            context: ./ai-module
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false   # 이후 단계에 GITHUB_TOKEN 남기지 않음
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: env.PUSH == 'true'         # PR 빌드에서는 로그인하지 않음 (Secrets 미사용)
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # PR 에서는 Secrets 가 없을 수 있으므로 이름만 임시로 사용 (Push 하지 않음)
+          images: ${{ secrets.DOCKERHUB_USERNAME || 'local' }}/${{ matrix.image }}
+          tags: |
+            # 기본 브랜치가 develop 이므로 is_default_branch 대신 main 을 직접 비교
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=sha-,format=short
+            type=ref,event=pr
+
+      - name: Build (and push on main)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64       # EC2 t3 계열(x86). Graviton(t4g) 사용 시 linux/arm64 로 변경
+          push: ${{ env.PUSH == 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VITE_API_URL=/api
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+
+      - name: Summary
+        run: |
+          {
+            echo "### ${{ matrix.image }}"
+            echo "- push: ${{ env.PUSH }}"
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
