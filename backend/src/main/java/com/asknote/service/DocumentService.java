@@ -45,7 +45,12 @@ public class DocumentService {
                 .toList();
     }
 
-    /** 업로드: 행 저장(INDEXING) → AI 적재 → READY. 실패하면 청크 삭제 → 행 삭제 후 오류 (원본은 저장하지 않음) */
+    /**
+     * 업로드: 행 저장(INDEXING) → AI 적재 → READY. 실패하면 청크 삭제 → 행 삭제 후 오류 (원본은 저장하지 않음)
+     * 청크 삭제가 실패하면(타임아웃 후 AI 적재가 아직 진행 중인 경우 등) 행을 INDEXING 으로 남긴다
+     * → 사용자가 화면에서 삭제하면 청크 삭제를 다시 시도 (질문은 READY 문서만 검색하므로 답변에 쓰이지 않음)
+     * Backend 는 업로드마다 새 문서 id 를 만들므로 AI 의 409(같은 문서 중복 · 적재 중)는 발생하지 않는다
+     */
     public DocumentResponse upload(MultipartFile file) {
         Member member = currentMemberProvider.getCurrentMember();
         pdfValidator.validate(file);
@@ -66,8 +71,9 @@ public class DocumentService {
     }
 
     /**
-     * 삭제: AI 청크 삭제 → DB 행 삭제
-     * 청크 삭제가 실패해도 행은 삭제한다 — 질문은 DB 의 READY 문서 id 로만 검색하므로 남은 청크는 답변에 쓰이지 않음
+     * 삭제: AI 청크 삭제(204) 확인 후 DB 행 삭제
+     * 청크 삭제가 실패하면 행을 남기고 503 AI_UNAVAILABLE — 화면에서는 지워졌는데 AI 저장소에 자료 내용이 남는 일을 막고,
+     * 같은 문서 id 로 다시 삭제할 수 있게 한다 (AI 삭제는 청크가 없어도 204 라 재시도해도 안전)
      * IDOR 조치: 로그인 회원의 자료가 아니면 403 (요청의 id 만 믿지 않고 소유자를 DB 에서 확인) + 감사 로그
      */
     public void delete(Long documentId) {
@@ -79,12 +85,17 @@ public class DocumentService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        aiDocumentClient.deleteChunks(document.getId(), document.getMember().getUuid());
+        if (!aiDocumentClient.deleteChunks(document.getId(), document.getMember().getUuid())) {
+            throw new BusinessException(ErrorCode.AI_UNAVAILABLE);
+        }
         documentRepository.delete(document);
     }
 
     private void cleanUp(Document document, String ownerUuid) {
-        aiDocumentClient.deleteChunks(document.getId(), ownerUuid);
+        if (!aiDocumentClient.deleteChunks(document.getId(), ownerUuid)) {
+            log.warn("적재 실패 정리 보류 - 청크 삭제 실패로 행을 INDEXING 으로 남김 documentId={}", document.getId());
+            return;
+        }
         documentRepository.delete(document);
         log.info("적재 실패 정리 완료 documentId={}", document.getId());
     }

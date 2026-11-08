@@ -66,7 +66,7 @@ public class AiDocumentClient {
         }
     }
 
-    /** 청크 삭제 — 성공(204)이면 true, 실패 · 타임아웃이면 false (예외를 던지지 않음) */
+    /** 청크 삭제 — 성공(2xx, AI 는 청크가 없어도 204)이면 true, 실패 · 타임아웃이면 false (예외를 던지지 않음, 판단은 호출하는 쪽) */
     public boolean deleteChunks(Long documentId, String ownerUuid) {
         try {
             aiWebClient.delete()
