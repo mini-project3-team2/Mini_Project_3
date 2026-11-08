@@ -29,6 +29,7 @@ import tools.jackson.databind.ObjectMapper;
  * - AI error · 타임아웃 · 연결 오류: 원인은 로그에만, 화면에는 고정 문구, 기록 저장 안 함
  * - 화면 연결이 끊기면 AI 구독도 끊는다 (기록 저장 안 함)
  * - 거절 답변("찾지 못했어요")은 출처를 빈 배열로 저장 (관련 없는 출처가 질문 기록에 남지 않게)
+ * - token 없이(공백만) done 이 오면 기록을 저장하지 않고 error 로 바꿔 보냄 (추론 모델이 출력 예산을 추론에 다 쓴 경우 등, #63)
  */
 @Slf4j
 @Service
@@ -117,6 +118,11 @@ public class ChatStreamService {
                 send(emitter, "token", data, finished);
             }
             case "done" -> {
+                if (answer.toString().isBlank()) {
+                    log.warn("AI 가 빈 답변으로 done - 기록 저장 안 하고 error 로 전환");
+                    fail(emitter, finished);
+                    return;
+                }
                 if (!finished.compareAndSet(false, true)) {
                     return;
                 }
