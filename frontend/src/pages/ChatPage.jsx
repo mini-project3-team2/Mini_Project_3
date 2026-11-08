@@ -7,7 +7,8 @@ import useChatStream from '../hooks/useChatStream'
 import useDocuments from '../hooks/useDocuments'
 import { useChatStore } from '../store/chatStore'
 
-const EXAMPLES = ['이 자료의 핵심 개념을 정리해 줘', '자료에 나온 두 개념은 뭐가 달라?', '이 내용은 왜 필요한 거야?']
+// 빈칸 틀 — 자료에 나온 용어를 직접 넣게 한다 (그대로 보내면 관련도 필터에 걸려 "찾지 못했어요"가 나오므로)
+const EXAMPLES = ['○○이(가) 뭐야?', '○○와(과) △△는 뭐가 달라?', '○○은(는) 왜 필요해?']
 
 const linkBtn = 'mt-5 inline-flex min-h-11 items-center rounded-md bg-accent px-5 text-sm font-semibold text-white hover:bg-accent/90'
 
@@ -65,6 +66,7 @@ function Welcome({ items, onPick }) {
               </li>
             ))}
           </ul>
+          <p className="mt-3 text-xs text-ink/60">자료에 나온 용어를 넣어 물어보면 더 정확해요</p>
         </div>
       )}
     </>
