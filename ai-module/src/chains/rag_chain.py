@@ -10,6 +10,7 @@ vectorstore.dedupe_sources가 만들고 라우터가 sources 이벤트로 내보
 """
 
 from collections.abc import AsyncIterator
+from contextlib import aclosing
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -98,8 +99,11 @@ async def astream_tokens(llm, question: str, hits: list[SearchHit]) -> AsyncIter
         return
 
     messages = build_rag_messages(question, hits)
-    async for chunk in llm.astream(messages):
-        content = chunk.content
-        text = content if isinstance(content, str) else str(content)
-        if text:
-            yield text
+    # llm.astream도 aclosing으로 감싼다. 바깥이 닫히면(연결 끊김) 실제 LLM 스트림까지
+    # 즉시 닫혀 토큰 생성·비용이 바로 멈춘다.
+    async with aclosing(llm.astream(messages)) as stream:
+        async for chunk in stream:
+            content = chunk.content
+            text = content if isinstance(content, str) else str(content)
+            if text:
+                yield text

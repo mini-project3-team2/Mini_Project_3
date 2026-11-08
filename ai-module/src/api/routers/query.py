@@ -14,12 +14,13 @@ SSE 규약(API 설계서 6.3):
 import asyncio
 import json
 import logging
+from contextlib import aclosing
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import ValidationError
 from starlette.responses import JSONResponse, StreamingResponse
 
-from src.chains.rag_chain import astream_tokens
+from src.chains.rag_chain import NO_CONTEXT_MESSAGE, astream_tokens
 from src.core.llm import build_llm
 from src.core.security import require_internal_token
 from src.schemas.query import QueryInputError, QueryRequest
@@ -73,11 +74,20 @@ async def _event_stream(request: Request, query: QueryRequest):
     # 3) 출처는 검색 메타데이터로 생성(0건이면 빈 배열). sources를 먼저 보낸다.
     yield _sse("sources", dedupe_sources(hits))
 
-    # 4) 답변 토큰 스트리밍. 0건이면 rag_chain이 거절 문구 한 조각만 낸다.
+    # 4) 검색 0건이면 LLM을 만들지 않고 거절 문구만 보낸다. LLM 설정 오류가 0건
+    #    거절 응답을 망치지 않도록, hits가 1건 이상일 때만 build_llm을 호출한다.
+    if not hits:
+        yield _sse("token", {"text": NO_CONTEXT_MESSAGE})
+        yield _sse("done", {})
+        return
+
+    # 5) 답변 토큰 스트리밍. aclosing으로 감싸 어떤 이유로 중단되든(클라이언트 끊김
+    #    → GeneratorExit/CancelledError) 안쪽 LLM 스트림이 즉시 닫히게 한다(비용 방어).
     try:
         llm = build_llm(settings)
-        async for text in astream_tokens(llm, query.question, hits):
-            yield _sse("token", {"text": text})
+        async with aclosing(astream_tokens(llm, query.question, hits)) as stream:
+            async for text in stream:
+                yield _sse("token", {"text": text})
     except asyncio.CancelledError:
         # 클라이언트 끊김: error를 보내지 않고 조용히 종료한다(비용 방어).
         raise
