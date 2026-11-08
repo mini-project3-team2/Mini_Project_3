@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import AuthCard, { Field, FormAlert, FormNotice, SubmitButton } from '../components/AuthCard'
+import AuthCard, { Field, FormNotice, SubmitButton } from '../components/AuthCard'
+import FormAlert from '../components/FormAlert'
 import { login } from '../services/api'
 import { useAuthStore } from '../store/authStore'
 import { errorMessage, lockedText } from '../utils/errorMessage'

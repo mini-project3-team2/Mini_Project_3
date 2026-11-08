@@ -73,6 +73,11 @@ export async function signup(email, password) {
   return data.data
 }
 
+export async function sendFeedback(chatId, feedback) {
+  const { data } = await api.patch(`/chats/${encodeURIComponent(chatId)}/feedback`, { feedback })
+  return data.data
+}
+
 export async function logout() {
   const send = () => {
     const rt = getRefresh()
