@@ -15,7 +15,7 @@ export default function FileUploader({ busy, onFile, onError }) {
 
   const pick = (files) => {
     if (busy || !files?.length) return
-    if (files.length > 1) return onError('파일은 한 번에 하나씩 올려 주세요.')
+    if (files.length > 1) return onError('파일은 한 번에 하나씩 업로드해 주세요.')
     onFile(files[0])
   }
 
@@ -44,14 +44,14 @@ export default function FileUploader({ busy, onFile, onError }) {
         <>
           <p className="mt-3 flex items-center gap-2 text-sm font-semibold">
             <span className="size-4 rounded-full border-2 border-accent border-t-transparent motion-safe:animate-spin" aria-hidden="true" />
-            자료를 올리고 정리하는 중이에요
+            자료를 업로드하고 정리하는 중이에요
           </p>
           <p className="mt-2 text-xs text-ink/70">자료 크기에 따라 몇 분 걸릴 수 있어요. 끝날 때까지 기다려 주세요.</p>
         </>
       ) : (
         <>
           <p className="mt-3 text-sm font-semibold">PDF 파일을 여기로 끌어다 놓으세요</p>
-          <p className="mt-2 text-xs text-ink/70">PDF만 올릴 수 있고, 파일 하나당 10MB까지 가능해요</p>
+          <p className="mt-2 text-xs text-ink/70">PDF만 업로드할 수 있고, 파일 하나당 10MB까지 가능해요</p>
         </>
       )}
       <input
@@ -73,7 +73,7 @@ export default function FileUploader({ busy, onFile, onError }) {
         aria-busy={busy}
         className="mt-4 min-h-11 rounded-md bg-accent px-5 text-sm font-semibold text-white hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {busy ? '올리는 중...' : '파일 선택'}
+        {busy ? '업로드 중...' : '파일 선택'}
       </button>
     </div>
   )

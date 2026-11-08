@@ -90,6 +90,12 @@ export async function deleteDocument(id) {
   await api.delete(`/documents/${encodeURIComponent(id)}`)
 }
 
+// 질문 기록 페이지 (page 는 0부터, size 는 서버 허용 1~50)
+export async function getChats(page, size) {
+  const { data } = await api.get('/chats', { params: { page, size } })
+  return data.data
+}
+
 export async function sendFeedback(chatId, feedback) {
   const { data } = await api.patch(`/chats/${encodeURIComponent(chatId)}/feedback`, { feedback })
   return data.data

@@ -70,7 +70,7 @@ export default function ChatMessage({ msg, onFeedback }) {
               <p>{error?.text}</p>
               {error?.code === 'NO_DOCUMENT' && (
                 <Link to="/documents" className="mt-1 inline-block font-semibold underline">
-                  내 자료로 가서 올리기
+                  내 자료로 가서 업로드하기
                 </Link>
               )}
             </FormAlert>
