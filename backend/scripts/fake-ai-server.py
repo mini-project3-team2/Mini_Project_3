@@ -1,7 +1,7 @@
 """
 로컬 확인용 가짜 AI Module (실제 AI Module 이 준비되기 전까지 Backend 업로드 · 삭제 흐름 확인용)
 실행 (저장소 최상위에서): python backend/scripts/fake-ai-server.py
-  FAKE_AI_MODE=ok(기본) | 422(글자 추출 실패) | 500(AI 오류) | error(답변 중 LLM 오류) | hang(답변 중 멈춤 → 타임아웃)  — 예: FAKE_AI_MODE=422 python backend/scripts/fake-ai-server.py
+  FAKE_AI_MODE=ok(기본) | 422(글자 추출 실패) | 500(AI 오류) | error(답변 중 LLM 오류) | hang(답변 중 멈춤 → 타임아웃) | empty(token 없이 done → 빈 답변)  — 예: FAKE_AI_MODE=422 python backend/scripts/fake-ai-server.py
 - X-Internal-Token 은 저장소 최상위 .env 의 AI_INTERNAL_TOKEN 과 비교 (다르면 401)
 - GET /debug/documents : 현재 "적재된" 문서 id 목록 (적재 실패 정리 · 삭제 확인용)
 파일 내용은 출력하지 않는다
@@ -98,6 +98,8 @@ class Handler(BaseHTTPRequestHandler):
             tokens = [f"[{names}] 자료를 근거로 ", "답변을 ", "조금씩 ", "보내고 ", "있어요."]
         else:
             tokens = ["올린 자료에서 ", "관련 내용을 찾지 못했어요."]
+        if MODE == "empty":
+            tokens = []
         for i, t in enumerate(tokens):
             if MODE == "error" and i == 2:
                 return event("error", {"code": "LLM_ERROR"})
