@@ -9,6 +9,7 @@ import notFoundEvents from '../../../../mock-data/sse/stream-not-found.events.js
 import successEvents from '../../../../mock-data/sse/stream-success.events.json'
 import { authMember, db, localIso, save } from '../db'
 import { API, fail, ok, readJson } from '../respond'
+import { isRefusal } from '../../utils/refusal'
 
 const MAX_SIZE = 50
 const MAX_Q = 1000
@@ -54,6 +55,11 @@ function scenario(question, ready) {
     const src = errorEvents.find((e) => e.event === 'sources').data
     return { fmt: spring, sources: ownSources(src, ready), events: body(errorEvents), fail: true }
   }
+  // 출처가 먼저 온 뒤 거절 문구가 나오는 경우 (LLM 이 근거로 답하지 못함) — mock-data 원본 출처 1개 사용
+  if (question.includes('거절')) {
+    const src = notFoundEvents.find((e) => e.event === 'sources').data
+    return { fmt: spring, sources: ownSources(src, ready), events: body(notFoundEvents) }
+  }
   if (question.includes('없는내용')) {
     return { fmt: spaced, sources: [], events: body(notFoundEvents) }
   }
@@ -97,12 +103,13 @@ function streamAnswer(request, m, question, ready) {
         if (!s.fail) {
           await wait(rand(40, 80))
           if (stop) return
+          const answer = s.events.map((e) => e.data.text).join('')
           const chat = {
             id: Math.max(0, ...db.chats.map((c) => c.id)) + 1,
             memberId: m.id,
             question,
-            answer: s.events.map((e) => e.data.text).join(''),
-            sources: s.sources,
+            answer,
+            sources: isRefusal(answer) ? [] : s.sources, // Backend 처럼 거절 답변은 출처를 비워 저장
             feedback: null,
             createdAt: localIso(),
           }
