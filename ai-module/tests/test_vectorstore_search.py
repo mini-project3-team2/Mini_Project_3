@@ -9,7 +9,14 @@
 import tempfile
 import unittest
 
-from src.services.vectorstore import DEFAULT_K, SearchHit, open_collection, search
+from src.services.vectorstore import (
+    DEFAULT_K,
+    MAX_DISTANCE,
+    SearchHit,
+    filter_by_distance,
+    open_collection,
+    search,
+)
 from test_resources import test_settings
 
 OWNER = "8f14e45f-ea4d-4bb0-9f17-a93e15de9032"
@@ -100,6 +107,39 @@ class OwnerFilterSearchTests(unittest.IsolatedAsyncioTestCase):
             owner_uuid=OWNER, document_ids=[], k=DEFAULT_K,
         )
         self.assertEqual(hits, [])
+
+
+class FilterByDistanceTests(unittest.TestCase):
+    """관련도 필터 단위 테스트. 소유자 격리(search)와 분리해 거리 기준만 검증한다."""
+
+    def make_hits(self, distances):
+        return [
+            SearchHit(document_id=1, document_name="a.pdf", page=i + 1,
+                      text=f"t{i}", distance=d)
+            for i, d in enumerate(distances)
+        ]
+
+    def test_drops_hits_beyond_threshold(self):
+        # 기준 1.0: 0.4·1.0은 유지(이하), 1.4·2.0은 제거(초과).
+        hits = self.make_hits([0.4, 1.4, 1.0, 2.0])
+        kept = filter_by_distance(hits, max_distance=1.0)
+        self.assertEqual([h.distance for h in kept], [0.4, 1.0])  # 순서 유지, 경계값 포함
+
+    def test_all_dropped_returns_empty(self):
+        hits = self.make_hits([1.5, 1.8, 2.0])
+        self.assertEqual(filter_by_distance(hits, max_distance=1.0), [])
+
+    def test_all_within_threshold_are_kept(self):
+        hits = self.make_hits([0.1, 0.5, 0.9])
+        kept = filter_by_distance(hits, max_distance=1.0)
+        self.assertEqual(len(kept), 3)
+        self.assertEqual(kept, hits)  # 아무것도 버리지 않고 순서 그대로
+
+    def test_default_threshold_is_used(self):
+        # 기본값(MAX_DISTANCE=1.0)으로 호출해도 경계 동작이 같은지 확인.
+        hits = self.make_hits([0.9, 1.1])
+        kept = filter_by_distance(hits)
+        self.assertEqual([h.distance for h in kept], [0.9])
 
 
 if __name__ == "__main__":
