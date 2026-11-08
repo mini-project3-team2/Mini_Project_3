@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from src.api.routers.health import router as health_router
 from src.api.routers.documents import router as documents_router
+from src.api.routers.query import router as query_router
 from src.core.config import Settings, load_settings
 from src.core.resources import AppResources
 
@@ -30,6 +31,7 @@ def create_app(settings_loader: Callable[[], Settings] = load_settings) -> FastA
     application = FastAPI(title="AskNote AI", lifespan=lifespan)
     application.include_router(health_router)
     application.include_router(documents_router)
+    application.include_router(query_router)
     return application
 
 
