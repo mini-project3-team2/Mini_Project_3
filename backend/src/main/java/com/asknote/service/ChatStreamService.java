@@ -28,6 +28,7 @@ import tools.jackson.databind.ObjectMapper;
  * - sources · token 은 그대로 중계, token 은 모아 두었다가 done 때 기록 저장 후 {"chatId"} 전송
  * - AI error · 타임아웃 · 연결 오류: 원인은 로그에만, 화면에는 고정 문구, 기록 저장 안 함
  * - 화면 연결이 끊기면 AI 구독도 끊는다 (기록 저장 안 함)
+ * - 거절 답변("찾지 못했어요")은 출처를 빈 배열로 저장 (관련 없는 출처가 질문 기록에 남지 않게)
  */
 @Slf4j
 @Service
@@ -35,6 +36,11 @@ import tools.jackson.databind.ObjectMapper;
 public class ChatStreamService {
 
     static final String ERROR_MESSAGE = "{\"message\":\"지금은 답변할 수 없습니다. 잠시 후 다시 시도해 주세요\"}";
+
+    /** AI Module 거절 문구의 핵심 부분 (공백 제거 후 비교 — LLM 이 띄어쓰기를 조금 바꿔도 인식) */
+    static final String REFUSAL_PHRASE = "올린자료에서관련내용을찾지못했어요";
+    /** 거절 문구 전체 길이(공백 제외 약 40자)의 2배 이하일 때만 거절로 본다 — 긴 정상 답변이 문구를 인용한 경우 제외 */
+    static final int REFUSAL_MAX_LENGTH = 80;
 
     private final CurrentMemberProvider currentMemberProvider;
     private final DocumentRepository documentRepository;
@@ -114,8 +120,10 @@ public class ChatStreamService {
                 if (!finished.compareAndSet(false, true)) {
                     return;
                 }
+                String answerText = answer.toString();
+                String sources = isRefusal(answerText) ? "[]" : sourcesJson[0];
                 ChatHistory saved = chatHistoryRepository.save(
-                        new ChatHistory(context.member(), context.question(), answer.toString(), sourcesJson[0]));
+                        new ChatHistory(context.member(), context.question(), answerText, sources));
                 try {
                     emitter.send(SseEmitter.event().name("done").data("{\"chatId\":" + saved.getId() + "}"));
                     emitter.complete();
@@ -149,6 +157,12 @@ public class ChatStreamService {
         } catch (IOException | IllegalStateException e) {
             emitter.completeWithError(e);
         }
+    }
+
+    /** 자료에서 답을 찾지 못한 거절 답변인지 */
+    static boolean isRefusal(String answer) {
+        String compact = answer.replaceAll("\\s+", "");
+        return compact.length() <= REFUSAL_MAX_LENGTH && compact.contains(REFUSAL_PHRASE);
     }
 
     private String readText(String tokenJson) {

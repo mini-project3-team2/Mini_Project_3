@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# RAG 소유자 우회 - 실제 AI 재확인 (보안점검서 6.3)
+# RAG 소유자 우회 - 실제 AI 재확인 (보안점검서 6.3) + 거절 답변 출처 미저장 확인
 # docker compose up -d 로 전체 기동 후, 저장소 최상위에서: bash backend/scripts/rag-real-check.sh
 #  - A: 정보보안학01.pdf 업로드 / B: 3_ReactJS.pdf 업로드
 #  - B 토큰 + body 에 A 의 ownerUuid · documentIds 를 넣어 A 자료 내용을 질문
@@ -59,6 +59,7 @@ print('   답변:', ans[:120].replace(chr(10),' '))"
 S=$RANDOM
 AL=$(account "rag-a$S@test.com"); AT=$(field accessToken "$AL"); A_UUID=$(field uuid "$AL")
 BL=$(account "rag-b$S@test.com"); BT=$(field accessToken "$BL")
+case "$AT$BT" in *'<'*|*' '*|'') echo "로그인 실패 (Backend 가 아직 기동 중이거나 꺼져 있음) → docker compose ps 로 backend 가 healthy 인지 확인 후 다시 실행"; exit 1;; esac
 
 echo "== 업로드 (실제 적재라 수십 초 걸릴 수 있음)"
 AD=$(upload "$AT" 정보보안학01.pdf); A_DOC=$(field id "$AD")
@@ -73,4 +74,12 @@ ask "$AT" "{\"question\":\"$Q\"}"
 echo "== 2. B 토큰 + body 에 A 의 ownerUuid · documentIds 조작"
 ask "$BT" "{\"question\":\"$Q\",\"ownerUuid\":\"$A_UUID\",\"documentIds\":[$A_DOC]}"
 echo "   → 출처에 정보보안학01.pdf 가 없고 카이사르 설명이 없으면 조치됨 (B 는 자기 자료로만 검색)"
+
+echo "== 3. 거절 답변 기록의 출처 (B 의 최신 질문 기록)"
+curl -s "$B/api/chats?page=0&size=1" -H "Authorization: Bearer $BT" | "$PY" -c "
+import json,sys
+sys.stdout.reconfigure(encoding='utf-8')
+c=json.load(sys.stdin.buffer)['data']['content'][0]
+print('   답변:', c['answer'][:40]); print('   저장된 출처:', c['sources'])"
+echo "   → 저장된 출처가 [] 이면 정상 (거절 답변에는 관련 없는 출처를 기록하지 않음)"
 rm -rf "$TMP"
