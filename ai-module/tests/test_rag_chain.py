@@ -16,8 +16,10 @@ from src.chains.rag_chain import (
 from src.services.vectorstore import SearchHit
 
 
-def hit(text="본문", *, document_id=1, name="a.pdf", page=1):
-    return SearchHit(document_id=document_id, document_name=name, page=page, text=text)
+def hit(text="본문", *, document_id=1, name="a.pdf", page=1, distance=0.1):
+    # SearchHit.distance에는 기본값이 없으므로 테스트에서 명시한다(기준 이내 값).
+    return SearchHit(document_id=document_id, document_name=name, page=page,
+                     text=text, distance=distance)
 
 
 async def collect(agen):
