@@ -1,4 +1,4 @@
-"""Authenticated multipart PDF ingestion; errors are local to this endpoint."""
+"""Authenticated internal PDF ingestion and document deletion."""
 
 import asyncio
 import logging
@@ -6,12 +6,12 @@ import time
 
 from fastapi import APIRouter, Depends, Request
 from starlette.exceptions import HTTPException
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 
 from src.core.security import require_internal_token
-from src.schemas.documents import IngestInput, IngestResponse
+from src.schemas.documents import IngestInput, IngestResponse, parse_document_identity
 from src.services.embedding import EmbeddingPreparationError, DEFAULT_BUDGET_SECONDS
-from src.services.ingest import IngestionError
+from src.services.ingest import IngestionError, delete_document_chunks
 from src.services.pdf import PdfProcessingError, prepare_pdf
 
 logger = logging.getLogger(__name__)
@@ -112,3 +112,28 @@ async def ingest_document(request: Request):
     except Exception:
         logger.error("document_ingestion_internal_error")
         return JSONResponse(status_code=500, content={"error": "INTERNAL_ERROR"})
+
+
+@router.delete(
+    "/internal/documents/{documentId}", status_code=204, response_class=Response,
+    responses={400: {"description": "INVALID_INPUT"}, 401: {"description": "Unauthorized"},
+               503: {"description": "STORAGE_ERROR"}},
+    openapi_extra={"parameters": [{"name": "ownerUuid", "in": "query", "required": True,
+                                  "schema": {"type": "string", "format": "uuid"}}]},
+)
+async def delete_document(documentId: str, request: Request):
+    owners = request.query_params.getlist("ownerUuid")
+    try:
+        if len(owners) != 1:
+            raise IngestionError("INVALID_INPUT", 400)
+        doc_id, owner = parse_document_identity(documentId, owners[0])
+    except IngestionError as error:
+        return JSONResponse(status_code=error.status_code, content={"error": error.code})
+
+    try:
+        collection = await finish_before_cancelling(request.app.state.resources.collection())
+        await finish_before_cancelling(asyncio.to_thread(delete_document_chunks, collection, owner, doc_id))
+    except Exception:
+        logger.error("document_delete_storage_error")
+        return JSONResponse(status_code=503, content={"error": "STORAGE_ERROR"})
+    return Response(status_code=204)

@@ -44,6 +44,13 @@ def _existing(collection, where):
         raise IngestionError("STORAGE_ERROR") from None
 
 
+def delete_document_chunks(collection, owner_uuid, document_id):
+    where = document_filter(owner_uuid, document_id)
+    collection.delete(where=where)
+    if _existing(collection, where):
+        raise IngestionError("STORAGE_ERROR")
+
+
 def _cleanup(collection, ids, where):
     """Delete only attempted IDs within this owner/document, and verify removal."""
     try:

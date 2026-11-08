@@ -74,6 +74,45 @@ class DocumentApiTests(unittest.TestCase):
         self.assertIsNone(self.app.state.resources._embeddings)
         self.assertEqual(self.client.get("/health").status_code, 200)
 
+    def test_delete_removes_only_target_and_is_repeatable(self):
+        owner = self.fields["ownerUuid"]
+        other = "12345678-1234-1234-1234-123456789abc"
+        for fields in (self.fields, self.fields | {"documentId": "13"},
+                       self.fields | {"ownerUuid": other}):
+            self.assertEqual(self.post(fields=fields).status_code, 200)
+        collection = self.client.portal.call(self.app.state.resources.collection)
+        rows = collection.get(include=["metadatas"])
+        expected = {key for key, meta in zip(rows["ids"], rows["metadatas"])
+                    if (meta["owner_uuid"], meta["document_id"]) != (owner, 12)}
+        self.assertEqual(len(expected), 4)
+        for _ in range(2):
+            response = self.client.delete("/internal/documents/12", headers=self.headers,
+                                          params={"ownerUuid": owner.upper()})
+            self.assertEqual(response.status_code, 204, response.text)
+            self.assertEqual(response.content, b"")
+            self.assertEqual(set(collection.get(include=[])["ids"]), expected)
+
+    def test_delete_checks_auth_and_identity_before_storage(self):
+        path = "/internal/documents/"
+        for headers in ({}, {"X-Internal-Token": "wrong"}):
+            self.assertEqual(self.client.delete(path + "bad", headers=headers).status_code, 401)
+        owner = self.fields["ownerUuid"]
+        for doc_id, owners in (("0", [owner]), ("9223372036854775808", [owner]),
+                               ("12", []), ("12", ["bad"]), ("12", [owner, owner])):
+            response = self.client.delete(path + doc_id, headers=self.headers,
+                                          params=[("ownerUuid", value) for value in owners])
+            self.assert_error(response, 400, "INVALID_INPUT")
+        self.assertIsNone(self.app.state.resources._collection)
+
+    def test_delete_storage_failure_and_incomplete_removal(self):
+        self.assertEqual(self.post().status_code, 200)
+        collection = self.client.portal.call(self.app.state.resources.collection)
+        for failure in (RuntimeError("private storage detail"), None):
+            with patch.object(collection, "delete", side_effect=failure):
+                response = self.client.delete("/internal/documents/12", headers=self.headers,
+                                              params={"ownerUuid": self.fields["ownerUuid"]})
+            self.assert_error(response, 503, "STORAGE_ERROR")
+
     def test_invalid_fields_never_extract_or_create_clients(self):
         cases = []
         for key in self.fields:
