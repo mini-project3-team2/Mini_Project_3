@@ -4,7 +4,7 @@ import { errorMessage } from '../utils/errorMessage'
 import { checkPdf } from '../utils/validate'
 import { useAuthStore } from './authStore'
 
-const TOO_LARGE = '10MB 이하의 PDF만 올릴 수 있어요.'
+const TOO_LARGE = '10MB 이하의 PDF만 업로드할 수 있어요.'
 const TIMEOUT = '자료 처리 시간이 너무 오래 걸렸어요. 잠시 후 목록을 확인하거나 다시 시도해 주세요.'
 
 // 서버 message 가 없을 때(nginx HTML 오류 등)만 쓰는 문구
@@ -60,7 +60,7 @@ export const useDocumentStore = create((set, get) => ({
       set({
         uploading: null,
         items: items ? [d, ...items.filter((x) => x.id !== d.id)] : null,
-        notice: `${d.originalFilename} 자료를 올렸어요.`,
+        notice: `${d.originalFilename} 자료를 업로드했어요.`,
       })
       if (!items) get().load()
     } catch (e) {

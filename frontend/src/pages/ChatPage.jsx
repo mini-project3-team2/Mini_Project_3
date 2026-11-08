@@ -22,10 +22,10 @@ function Welcome({ items, onPick }) {
     return (
       <>
         {icon(<UploadIcon className="size-5" />)}
-        <p className="mt-4 text-2xl font-bold">아직 올린 자료가 없어요</p>
-        <p className="mt-2 text-sm text-ink/70">자료를 먼저 올려 주세요. PDF 자료를 올리면 그 내용으로 질문할 수 있어요</p>
+        <p className="mt-4 text-2xl font-bold">아직 업로드한 자료가 없어요</p>
+        <p className="mt-2 text-sm text-ink/70">자료를 먼저 업로드해 주세요. PDF 자료를 업로드하면 그 내용으로 질문할 수 있어요</p>
         <Link to="/documents" className={linkBtn}>
-          자료 올리러 가기
+          자료 업로드하러 가기
         </Link>
       </>
     )
@@ -47,7 +47,7 @@ function Welcome({ items, onPick }) {
       {icon(<BookIcon className="size-5" />)}
       <p className="mt-4 text-2xl font-bold">무엇이 궁금한가요?</p>
       <p className="mt-2 text-sm text-ink/70">
-        {ready > 0 ? `올린 자료 ${ready}개를 근거로 찾아서 답해 드려요` : '올린 자료를 근거로 찾아서 답해 드려요'}
+        {ready > 0 ? `업로드한 자료 ${ready}개를 근거로 찾아서 답해 드려요` : '업로드한 자료를 근거로 찾아서 답해 드려요'}
       </p>
       {ready > 0 && (
         <div className="mt-6">
@@ -134,7 +134,7 @@ export default function ChatPage() {
       <div className="sticky bottom-0 bg-bg pb-1 pt-2">
         <ChatInput busy={busy} text={text} onText={setText} inputRef={inputRef} onSend={send} onStop={stop} />
         <p className="mt-2 text-center text-xs text-ink/60">
-          답변은 내가 올린 자료만 근거로 만들어져요. 자료에 없는 내용은 추측하지 않아요.
+          답변은 내가 업로드한 자료만 근거로 만들어져요. 자료에 없는 내용은 추측하지 않아요.
         </p>
       </div>
 

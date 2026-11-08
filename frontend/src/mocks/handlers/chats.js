@@ -57,6 +57,17 @@ function scenario(question, ready) {
   if (question.includes('없는내용')) {
     return { fmt: spaced, sources: [], events: body(notFoundEvents) }
   }
+  // 긴 답변 확인용: 정상 답변 조각을 문단으로 4번 반복
+  if (question.includes('긴답변')) {
+    const src = successEvents.find((e) => e.event === 'sources').data
+    const tokens = body(successEvents)
+    const events = [1, 2, 3, 4].flatMap((n) => [
+      ...(n > 1 ? [{ event: 'token', data: { text: '\n\n' } }] : []),
+      { event: 'token', data: { text: `${n}. ` } },
+      ...tokens,
+    ])
+    return { fmt: spring, sources: ownSources(src, ready), events }
+  }
   const src = successEvents.find((e) => e.event === 'sources').data
   return { fmt: spring, sources: ownSources(src, ready), events: body(successEvents) }
 }
