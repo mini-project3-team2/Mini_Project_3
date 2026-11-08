@@ -73,6 +73,23 @@ export async function signup(email, password) {
   return data.data
 }
 
+export async function getDocuments() {
+  const { data } = await api.get('/documents')
+  return Array.isArray(data.data) ? data.data : []
+}
+
+// 업로드는 적재가 끝난 뒤 응답하므로 이 요청만 180초 (API 설계서 4.1)
+export async function uploadDocument(file) {
+  const form = new FormData()
+  form.append('file', file)
+  const { data } = await api.post('/documents', form, { timeout: 180000 })
+  return data.data
+}
+
+export async function deleteDocument(id) {
+  await api.delete(`/documents/${encodeURIComponent(id)}`)
+}
+
 export async function sendFeedback(chatId, feedback) {
   const { data } = await api.patch(`/chats/${encodeURIComponent(chatId)}/feedback`, { feedback })
   return data.data

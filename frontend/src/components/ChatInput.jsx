@@ -1,25 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 
 export const MAX_Q = 1000
 
-// Enter 전송 · Shift+Enter 줄바꿈 (한글 조합 중 Enter 는 무시)
-export default function ChatInput({ busy, onSend, onStop }) {
-  const [text, setText] = useState('')
-  const ref = useRef(null)
+// Enter 전송 · Shift+Enter 줄바꿈 (한글 조합 중 Enter 는 무시). 입력값은 부모가 관리 (예시 질문 채우기)
+export default function ChatInput({ busy, text, onText, inputRef: ref, onSend, onStop }) {
+  const setText = onText
   const len = text.length
   const over = len > MAX_Q
   const empty = !text.trim()
 
   useEffect(() => {
     if (!busy) ref.current?.focus()
-  }, [busy])
+  }, [busy, ref])
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
-  }, [text])
+  }, [text, ref])
 
   const submit = () => {
     if (busy || empty || over) return
