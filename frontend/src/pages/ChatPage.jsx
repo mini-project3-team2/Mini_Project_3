@@ -82,7 +82,7 @@ function liveText(m) {
   return ''
 }
 
-const nearBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 160
+const nearBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100
 
 export default function ChatPage() {
   const messages = useChatStore((s) => s.messages)
@@ -91,9 +91,12 @@ export default function ChatPage() {
   const { items } = useDocuments()
   const [text, setText] = useState('')
   const inputRef = useRef(null)
-  const endRef = useRef(null)
   const stick = useRef(true)
   const count = useRef(messages.length)
+  const len = messages.length
+  const last = messages.at(-1)
+  // 내용이 바뀔 때만 달라지는 값 (피드백 변경은 제외)
+  const sig = last ? `${last.id}:${last.status}:${last.answer.length}:${last.sources.length}` : ''
 
   useEffect(() => {
     const onScroll = () => {
@@ -103,12 +106,12 @@ export default function ChatPage() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // 새 질문을 보내면 항상, 답변이 이어질 때는 사용자가 아래쪽을 보고 있을 때만 따라 내려간다
+  // 새 질문을 보내면 항상, 답변이 이어질 때는 사용자가 아래쪽을 보고 있을 때만 페이지 맨 아래(입력창 아래 여백 포함)로 따라간다
   useEffect(() => {
-    const added = messages.length > count.current
-    count.current = messages.length
-    if (added || stick.current) endRef.current?.scrollIntoView({ block: 'end' })
-  }, [messages])
+    const added = len > count.current
+    count.current = len
+    if (added || stick.current) window.scrollTo({ top: document.documentElement.scrollHeight })
+  }, [len, sig])
 
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-3xl flex-col">
@@ -131,7 +134,6 @@ export default function ChatPage() {
           ))}
         </div>
       )}
-      <div ref={endRef} />
 
       <div className="sticky bottom-0 bg-bg pb-1 pt-2">
         <ChatInput busy={busy} text={text} onText={setText} inputRef={inputRef} onSend={send} onStop={stop} />
