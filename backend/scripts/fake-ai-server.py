@@ -1,7 +1,7 @@
 """
 로컬 확인용 가짜 AI Module (실제 AI Module 이 준비되기 전까지 Backend 업로드 · 삭제 흐름 확인용)
 실행 (저장소 최상위에서): python backend/scripts/fake-ai-server.py
-  FAKE_AI_MODE=ok(기본) | 422(글자 추출 실패) | 500(AI 오류) | error(답변 중 LLM 오류) | hang(답변 중 멈춤 → 타임아웃) | empty(token 없이 done → 빈 답변)  — 예: FAKE_AI_MODE=422 python backend/scripts/fake-ai-server.py
+  FAKE_AI_MODE=ok(기본) | 422(글자 추출 실패) | 500(AI 오류) | error(답변 중 LLM 오류) | hang(답변 중 멈춤 → 타임아웃) | empty(token 없이 done → 빈 답변) | pages(500쪽 초과 → 422 TOO_MANY_PAGES)  — 예: FAKE_AI_MODE=422 python backend/scripts/fake-ai-server.py
 - X-Internal-Token 은 저장소 최상위 .env 의 AI_INTERNAL_TOKEN 과 비교 (다르면 401)
 - GET /debug/documents : 현재 "적재된" 문서 id 목록 (적재 실패 정리 · 삭제 확인용)
 파일 내용은 출력하지 않는다
@@ -140,6 +140,8 @@ class Handler(BaseHTTPRequestHandler):
               f"name={fields.get('documentName')} size={file_size} mode={MODE}")
         if MODE == "422":
             return self._send(422, {"error": "TEXT_EXTRACTION_FAILED"})
+        if MODE == "pages":
+            return self._send(422, {"error": "TOO_MANY_PAGES"})
         if MODE == "500":
             return self._send(500, {"error": "EMBEDDING_ERROR"})
         STORE[doc_id] = {"ownerUuid": fields.get("ownerUuid"), "documentName": fields.get("documentName")}

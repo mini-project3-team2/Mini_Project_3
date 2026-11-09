@@ -36,7 +36,8 @@ public class AiDocumentClient {
     }
 
     /**
-     * 적재 — 422 는 TEXT_EXTRACTION_FAILED, 그 밖의 오류 · 연결 실패 · 타임아웃은 AI_UNAVAILABLE
+     * 적재 — 422 는 본문 코드로 구분 (TOO_MANY_PAGES → TOO_MANY_PAGES, 그 밖 → TEXT_EXTRACTION_FAILED),
+     * 그 밖의 오류 · 연결 실패 · 타임아웃은 AI_UNAVAILABLE (API 설계서 6.1)
      */
     public IngestResponse ingest(Long documentId, String ownerUuid, String documentName, byte[] content) {
         MultipartBodyBuilder body = new MultipartBodyBuilder();
@@ -54,7 +55,9 @@ public class AiDocumentClient {
                     .body(BodyInserters.fromMultipartData(body.build()))
                     .retrieve()
                     .onStatus(status -> status.value() == HttpStatus.UNPROCESSABLE_CONTENT.value(),
-                            response -> Mono.error(new BusinessException(ErrorCode.TEXT_EXTRACTION_FAILED)))
+                            response -> response.bodyToMono(String.class)
+                                    .defaultIfEmpty("")
+                                    .flatMap(errorBody -> Mono.error(new BusinessException(unprocessable(errorBody)))))
                     .bodyToMono(IngestResponse.class)
                     .timeout(ingestTimeout)
                     .block();
@@ -64,6 +67,11 @@ public class AiDocumentClient {
             log.warn("AI 적재 실패 documentId={} cause={}", documentId, e.toString());
             throw new BusinessException(ErrorCode.AI_UNAVAILABLE);
         }
+    }
+
+    /** AI 422 본문 {"error":"CODE"} 의 코드 → 화면용 오류 코드 (본문은 로그에 남기지 않음) */
+    static ErrorCode unprocessable(String body) {
+        return body.contains("\"TOO_MANY_PAGES\"") ? ErrorCode.TOO_MANY_PAGES : ErrorCode.TEXT_EXTRACTION_FAILED;
     }
 
     /** 청크 삭제 — 성공(2xx, AI 는 청크가 없어도 204)이면 true, 실패 · 타임아웃이면 false (예외를 던지지 않음, 판단은 호출하는 쪽) */
