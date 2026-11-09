@@ -43,6 +43,18 @@ class AppTests(unittest.TestCase):
         self.assertFalse(hasattr(application.state, "settings"))
         self.assertFalse(hasattr(application.state, "resources"))
 
+    def test_api_docs_endpoints_are_disabled(self):
+        # 내부 API 문서(/docs·/redoc·/openapi.json)는 비공개여야 한다(#90).
+        settings = load_settings(env_file=None, environ=self.values)
+        application = create_app(lambda: settings)
+        with patch("src.core.resources.open_embeddings"), \
+             patch("src.core.resources.open_collection"), \
+             TestClient(application) as client:
+            for path in ("/docs", "/redoc", "/openapi.json"):
+                self.assertEqual(client.get(path).status_code, 404, path)
+            # /health는 그대로 동작해야 한다.
+            self.assertEqual(client.get("/health").status_code, 200)
+
     def test_invalid_configuration_prevents_startup(self):
         for overrides in ({"AI_INTERNAL_TOKEN": ""}, {"EMBEDDING_MODEL": "unsupported"}):
             with self.subTest(overrides=overrides):
