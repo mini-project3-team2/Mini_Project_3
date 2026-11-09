@@ -13,6 +13,7 @@ import com.asknote.repository.MemberRepository;
 import com.asknote.repository.RefreshTokenRepository;
 import com.asknote.security.JwtTokenProvider;
 import com.asknote.security.RefreshTokenUtil;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import java.time.temporal.ChronoUnit;
@@ -42,6 +43,12 @@ public class AuthService {
     @Value("${auth.login.lock-minutes}")
     private long lockMinutes;
 
+    /** BCrypt 가 처리하는 최대 길이 — 넘으면 BCrypt 가 예외를 던지므로(500) 비교 전에 실패로 처리 */
+    static final int BCRYPT_MAX_BYTES = 72;
+
+    /** 없는 이메일에도 BCrypt 비교 1회를 수행하기 위한 해시 (응답 시간으로 가입 여부를 알 수 없게) */
+    private volatile String dummyHash;
+
     @Transactional
     public MemberResponse signup(SignupRequest request, String ip) {
         String email = normalize(request.email());
@@ -64,6 +71,7 @@ public class AuthService {
         String email = normalize(request.email());
         Member member = memberRepository.findByEmailForUpdate(email).orElse(null);
         if (member == null) {
+            passwordMatches(request.password(), dummyHash()); // 결과는 쓰지 않음 — 있는 계정과 응답 시간을 맞춤
             auditLogger.loginFailure(email, ip);
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
@@ -77,7 +85,7 @@ public class AuthService {
             member.resetLoginFailure(); // 잠금 시간이 지났으면 횟수를 처음부터 다시 센다
         }
 
-        if (!passwordEncoder.matches(request.password(), member.getPassword())) {
+        if (!passwordMatches(request.password(), member.getPassword())) {
             member.recordLoginFailure(maxAttempts, now.plusMinutes(lockMinutes));
             if (member.isLocked(now)) {
                 auditLogger.accountLocked(email, ip);
@@ -129,6 +137,24 @@ public class AuthService {
         refreshTokenRepository.save(new RefreshToken(member, RefreshTokenUtil.hash(refreshToken), expiresAt));
         return new TokenResponse(accessToken, refreshToken,
                 jwtTokenProvider.getAccessExpirationSeconds(), MemberResponse.from(member));
+    }
+
+    /** 72바이트를 넘는 비밀번호는 BCrypt 에 넘기지 않고 실패로 처리 (같은 시간이 걸리도록 빈 값으로 한 번 비교) */
+    private boolean passwordMatches(String raw, String hash) {
+        if (raw.getBytes(StandardCharsets.UTF_8).length > BCRYPT_MAX_BYTES) {
+            passwordEncoder.matches("", hash);
+            return false;
+        }
+        return passwordEncoder.matches(raw, hash);
+    }
+
+    private String dummyHash() {
+        String hash = dummyHash;
+        if (hash == null) {
+            hash = passwordEncoder.encode(RefreshTokenUtil.generate());
+            dummyHash = hash;
+        }
+        return hash;
     }
 
     private String normalize(String email) {

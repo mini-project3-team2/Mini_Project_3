@@ -30,8 +30,7 @@ x-logging: &default-logging
 
 services:
   database:
-    # 배포 전 패치 버전까지 고정 권장 (예: mariadb:10.11.x) - 이미지 취약점 관리 (보안점검서 I-4)
-    image: mariadb:10.11
+    image: mariadb:10.11.19@sha256:d769e37960821dfdcf096954f6e7ac89f747e116c1bba98e48edd265dfc7deae   # 패치 버전 + digest 고정 (보안점검서 I-4)
     restart: unless-stopped
     mem_limit: 512m                    # 잠정값 - MariaDB 기본 InnoDB 버퍼 128MB 기준 여유
     environment:

@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 import asyncio
 import tempfile
 import threading
@@ -8,8 +9,11 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 from src.api.main import create_app
+from src.api.routers import documents
+from src.services import ingest
 from src.services.ingest import IngestionError
 from src.services.pdf import prepare_pdf
+from src.services.vectorstore import open_collection
 from test_pdf import synthetic_pdf
 from test_resources import test_settings
 from src.api.routers.documents import finish_before_cancelling
@@ -73,6 +77,126 @@ class DocumentApiTests(unittest.TestCase):
         self.assertIsNone(self.app.state.resources._collection)
         self.assertIsNone(self.app.state.resources._embeddings)
         self.assertEqual(self.client.get("/health").status_code, 200)
+
+    def test_delete_removes_only_target_and_is_repeatable(self):
+        owner = self.fields["ownerUuid"]
+        other = "12345678-1234-1234-1234-123456789abc"
+        for fields in (self.fields, self.fields | {"documentId": "13"},
+                       self.fields | {"ownerUuid": other}):
+            self.assertEqual(self.post(fields=fields).status_code, 200)
+        collection = self.client.portal.call(self.app.state.resources.collection)
+        rows = collection.get(include=["metadatas"])
+        expected = {key for key, meta in zip(rows["ids"], rows["metadatas"])
+                    if (meta["owner_uuid"], meta["document_id"]) != (owner, 12)}
+        self.assertEqual(len(expected), 4)
+        for _ in range(2):
+            response = self.client.delete("/internal/documents/12", headers=self.headers,
+                                          params={"ownerUuid": owner.upper()})
+            self.assertEqual(response.status_code, 204, response.text)
+            self.assertEqual(response.content, b"")
+            self.assertEqual(set(collection.get(include=[])["ids"]), expected)
+
+    def test_delete_checks_auth_and_identity_before_storage(self):
+        path = "/internal/documents/"
+        for headers in ({}, {"X-Internal-Token": "wrong"}):
+            self.assertEqual(self.client.delete(path + "bad", headers=headers).status_code, 401)
+        owner = self.fields["ownerUuid"]
+        for doc_id, owners in (("0", [owner]), ("9223372036854775808", [owner]),
+                               ("12", []), ("12", ["bad"]), ("12", [owner, owner])):
+            response = self.client.delete(path + doc_id, headers=self.headers,
+                                          params=[("ownerUuid", value) for value in owners])
+            self.assert_error(response, 400, "INVALID_INPUT")
+        self.assertIsNone(self.app.state.resources._collection)
+
+    def test_delete_race_during_pdf_preparation(self):
+        self.check_delete_race(documents, "prepare_pdf")
+
+    def test_upload_during_delete_conflicts_only_for_same_document(self):
+        self.assertEqual(self.post().status_code, 200)
+        collection = self.client.portal.call(self.app.state.resources.collection)
+        started, release = threading.Event(), threading.Event()
+        original_delete = collection.delete
+
+        def delayed_delete(**kwargs):
+            started.set()
+            if not release.wait(10):
+                raise AssertionError("Delete worker never released")
+            return original_delete(**kwargs)
+
+        with patch.object(collection, "delete", side_effect=delayed_delete), ThreadPoolExecutor(1) as pool:
+            deletion = pool.submit(self.client.delete, "/internal/documents/12", headers=self.headers,
+                                   params={"ownerUuid": self.fields["ownerUuid"]})
+            try:
+                self.assertTrue(started.wait(5))
+                self.assert_error(self.post(), 409, "INGESTION_IN_PROGRESS")
+                self.assertEqual(self.post(fields=self.fields | {"documentId": "13"}).status_code, 200)
+            finally:
+                release.set()
+            self.assertEqual(deletion.result(timeout=5).status_code, 204)
+        self.assertEqual(self.post().status_code, 200)
+
+    def test_delete_race_before_storage(self):
+        self.check_delete_race(ingest, "_store")
+
+    def test_delete_race_during_chroma_add(self):
+        collection = self.client.portal.call(self.app.state.resources.collection)
+        self.check_delete_race(collection, "add")
+
+    def check_delete_race(self, worker, method_name):
+        owner = self.fields["ownerUuid"]
+        other = "12345678-1234-1234-1234-123456789abc"
+        for fields in (self.fields | {"documentId": "13"}, self.fields | {"ownerUuid": other}):
+            self.assertEqual(self.post(fields=fields).status_code, 200)
+        collection = self.client.portal.call(self.app.state.resources.collection)
+        control_ids = set(collection.get(include=[])["ids"])
+        self.assertEqual(len(control_ids), 4)
+
+        reached, release = threading.Event(), threading.Event()
+        original = getattr(worker, method_name)
+
+        def pause_worker(*args, **kwargs):
+            reached.set()
+            if not release.wait(15):
+                raise AssertionError(f"Worker never released at {method_name}")
+            return original(*args, **kwargs)
+
+        with patch.object(worker, method_name, side_effect=pause_worker), ThreadPoolExecutor(2) as pool:
+            upload = pool.submit(self.post)
+            try:
+                self.assertTrue(reached.wait(5), f"Upload never reached {method_name}")
+                deletion = pool.submit(self.client.delete, "/internal/documents/12",
+                                       headers=self.headers, params={"ownerUuid": owner})
+                try:
+                    deletion.result(timeout=3)
+                except FutureTimeout:
+                    # A coordinated DELETE may wait until the upload worker has drained.
+                    pass
+            finally:
+                release.set()
+            response = deletion.result(timeout=10)
+            upload_response = upload.result(timeout=10)
+        self.assertEqual(response.status_code, 204, response.text)
+        self.assertEqual(response.content, b"")
+
+        self.client.portal.call(self.app.state.resources.aclose)
+
+        async def read_persisted_ids():
+            async with open_collection(self.settings) as reopened:
+                return set(reopened.get(include=[])["ids"])
+
+        persisted = asyncio.run(read_persisted_ids())
+        self.assertEqual(control_ids - persisted, set(), "DELETE removed unrelated chunks")
+        self.assertEqual(persisted - control_ids, set(),
+                         f"Chunks persisted after DELETE 204 (upload HTTP {upload_response.status_code})")
+
+    def test_delete_storage_failure_and_incomplete_removal(self):
+        self.assertEqual(self.post().status_code, 200)
+        collection = self.client.portal.call(self.app.state.resources.collection)
+        for failure in (RuntimeError("private storage detail"), None):
+            with patch.object(collection, "delete", side_effect=failure):
+                response = self.client.delete("/internal/documents/12", headers=self.headers,
+                                              params={"ownerUuid": self.fields["ownerUuid"]})
+            self.assert_error(response, 503, "STORAGE_ERROR")
 
     def test_invalid_fields_never_extract_or_create_clients(self):
         cases = []

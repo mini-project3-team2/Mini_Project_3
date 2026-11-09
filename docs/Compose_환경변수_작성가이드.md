@@ -26,7 +26,7 @@
 ```yaml
 services:
   database:
-    image: mariadb:10.11
+    image: mariadb:10.11.19@sha256:...   # 실제 값은 docker-compose.yml 참고 (태그 + digest 고정)
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
       MARIADB_DATABASE: ${MARIADB_DATABASE}

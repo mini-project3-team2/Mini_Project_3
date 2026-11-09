@@ -52,7 +52,7 @@ export default function LoginPage() {
   return (
     <AuthCard
       title="AskNote"
-      subtitle="내가 올린 수업 자료로 복습 질문에 답해 드려요"
+      subtitle="내가 업로드한 수업 자료로 복습 질문에 답해 드려요"
       footer={
         <>
           계정이 없으신가요?{' '}

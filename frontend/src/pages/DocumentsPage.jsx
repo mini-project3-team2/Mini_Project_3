@@ -20,7 +20,7 @@ export default function DocumentsPage() {
   return (
     <div className="mx-auto w-full max-w-4xl">
       <h1 className="text-2xl font-bold">내 자료</h1>
-      <p className="mt-2 text-sm text-ink/70">여기에 올린 자료만 질문의 근거로 쓰여요. 다른 사람은 내 자료를 볼 수 없어요.</p>
+      <p className="mt-2 text-sm text-ink/70">여기에 업로드한 자료만 질문의 근거로 쓰여요. 다른 사람은 내 자료를 볼 수 없어요.</p>
 
       <div className="mt-6">
         <FileUploader busy={!!uploading} onFile={upload} onError={setUploadError} />
@@ -52,8 +52,8 @@ export default function DocumentsPage() {
           <span className="flex size-11 items-center justify-center rounded-full bg-ready-bg text-accent">
             <UploadIcon className="size-5" />
           </span>
-          <p className="mt-4 font-semibold">아직 올린 자료가 없어요</p>
-          <p className="mt-2 text-sm text-ink/70">PDF 자료를 올리면 그 내용으로 질문할 수 있어요</p>
+          <p className="mt-4 font-semibold">아직 업로드한 자료가 없어요</p>
+          <p className="mt-2 text-sm text-ink/70">PDF 자료를 업로드하면 그 내용으로 질문할 수 있어요</p>
         </div>
       )}
     </div>

@@ -108,13 +108,14 @@
 ### 공식 버전 (`README.md`)
 
 > **로컬 버전 = Docker 이미지 버전 = 산출물 문서 버전** 이 같아야 합니다. (가이드 5장)
+> Docker 베이스 이미지는 패치 버전 태그 + `@sha256` digest 로 고정합니다 (실제 digest 는 각 Dockerfile · Compose 참고, 보안점검서 I-4). 이미지를 올릴 때는 태그 · digest · 이 표를 함께 갱신합니다.
 
 | 구분 | 기술 · 버전 | 버전 기준 파일 | Docker 이미지 |
 |---|---|---|---|
-| Frontend | React **19.3.x**, React Router, **Zustand**, Vite | `frontend/package.json` | `node:24-alpine` → `nginxinc/nginx-unprivileged:alpine` (비root) |
-| Backend | Spring Boot **4.0.x**, Spring Security **7.x**, JPA, Java **17** | `backend/pom.xml` | Maven + `eclipse-temurin:17-jdk` → `eclipse-temurin:17-jre` |
-| AI Module | Python **3.12**, uv **0.12.23**, FastAPI, LangChain, Tavily(필요 시) | `ai-module/.python-version`, `uv.lock` | `python:3.12-slim` (+ `ghcr.io/astral-sh/uv:0.12.23`) |
-| Database | MariaDB, Vector DB (FAISS 또는 Chroma), Flyway | `docker-compose.yml` | `mariadb:10.11` |
+| Frontend | React **19.3.x**, React Router, **Zustand**, Vite | `frontend/package.json` | `node:24.22.2-alpine3.24` → `nginxinc/nginx-unprivileged:1.31.7-alpine3.24` (비root) |
+| Backend | Spring Boot **4.0.x**, Spring Security **7.x**, JPA, Java **17** | `backend/pom.xml` | Maven + `eclipse-temurin:17.0.21_9-jdk-resolute` → `eclipse-temurin:17.0.21_9-jre-resolute` |
+| AI Module | Python **3.12**, uv **0.12.23**, FastAPI, LangChain, Tavily(필요 시) | `ai-module/.python-version`, `uv.lock` | `python:3.12.16-slim-trixie` (+ `ghcr.io/astral-sh/uv:0.12.23`) |
+| Database | MariaDB, Vector DB (FAISS 또는 Chroma), Flyway | `docker-compose.yml` | `mariadb:10.11.19` |
 | Infra | Docker, Docker Compose, GitHub Actions, AWS EC2, (Minikube / GCP GKE) | | |
 
 ### LLM · 임베딩 (가이드 3.4 · Key 는 강사 제공)

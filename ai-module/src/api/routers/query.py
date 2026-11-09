@@ -25,7 +25,7 @@ from src.core.llm import build_llm
 from src.core.security import require_internal_token
 from src.schemas.query import QueryInputError, QueryRequest
 from src.services.embedding import EmbeddingPreparationError
-from src.services.vectorstore import SearchError, dedupe_sources, search
+from src.services.vectorstore import SearchError, dedupe_sources, filter_by_distance, search
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(require_internal_token)])
@@ -70,6 +70,10 @@ async def _event_stream(request: Request, query: QueryRequest):
         logger.warning("query_stream_failed stage=search code=SEARCH_ERROR")
         yield _sse("error", {"code": "SEARCH_ERROR"})
         return
+
+    # 관련도 필터: 거리가 기준보다 큰(덜 관련된) 조각을 버린다. 걸러진 결과를 sources와
+    # LLM 근거 자료 양쪽에 똑같이 넘긴다. 전부 걸러지면 아래 0건 처리로 이어진다.
+    hits = filter_by_distance(hits)
 
     # 3) 출처는 검색 메타데이터로 생성(0건이면 빈 배열). sources를 먼저 보낸다.
     yield _sse("sources", dedupe_sources(hits))

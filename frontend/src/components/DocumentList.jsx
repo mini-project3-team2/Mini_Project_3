@@ -96,17 +96,16 @@ function Row({ doc, deleting, locked, onDelete }) {
 }
 
 export default function DocumentList({ items, uploading, deletingId, onDelete }) {
-  const count = items.length + (uploading ? 1 : 0)
   return (
     <section className="overflow-hidden rounded-xl border border-line bg-white">
-      <h2 className="px-4 py-4 text-sm font-semibold">올린 자료 {count}개</h2>
+      <h2 className="px-4 py-4 text-sm font-semibold">자료 목록</h2>
       <table className="w-full text-left text-sm">
         <thead className="bg-bg/60 text-xs text-ink/70">
           <tr className="whitespace-nowrap">
             <th scope="col" className="px-3 py-2.5 font-semibold">파일 이름</th>
             <th scope="col" className="px-3 py-2.5 sm:px-5 font-semibold">상태</th>
             <th scope="col" className={`px-3 py-2.5 sm:px-5 font-semibold ${sizeCol}`}>크기</th>
-            <th scope="col" className={`px-3 py-2.5 sm:px-5 font-semibold ${timeCol}`}>올린 시각</th>
+            <th scope="col" className={`px-3 py-2.5 sm:px-5 font-semibold ${timeCol}`}>업로드 시각</th>
             <th scope="col" className="px-3 py-2.5 sm:pl-5">
               <span className="sr-only">삭제</span>
             </th>
@@ -120,7 +119,7 @@ export default function DocumentList({ items, uploading, deletingId, onDelete })
                 <StatusBadge status="INDEXING" />
               </td>
               <td className={`${cell} ${sizeCol}`}>{formatBytes(uploading.size)}</td>
-              <td className={`${cell} ${timeCol} text-ink/70`}>올리는 중</td>
+              <td className={`${cell} ${timeCol} text-ink/70`}>업로드 중</td>
               <td className="px-3 py-2 sm:pl-5" />
             </tr>
           )}

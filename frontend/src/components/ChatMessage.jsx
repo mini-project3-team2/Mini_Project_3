@@ -48,7 +48,8 @@ export default function ChatMessage({ msg, onFeedback }) {
 
           {status === 'streaming' && <Progress>내 자료에서 찾아서 답변하는 중이에요</Progress>}
 
-          {live && sources.length > 0 && (
+          {/* 출처는 답변이 끝난 뒤에만 (거절 판별이 done 에서 끝나므로 스트리밍 중에는 숨김) */}
+          {status === 'done' && sources.length > 0 && (
             <section className="mt-3">
               <h3 className="mb-2 text-xs font-semibold text-ink/70">근거 자료</h3>
               <ul className="flex flex-wrap gap-2">
@@ -70,7 +71,7 @@ export default function ChatMessage({ msg, onFeedback }) {
               <p>{error?.text}</p>
               {error?.code === 'NO_DOCUMENT' && (
                 <Link to="/documents" className="mt-1 inline-block font-semibold underline">
-                  내 자료로 가서 올리기
+                  내 자료로 가서 업로드하기
                 </Link>
               )}
             </FormAlert>

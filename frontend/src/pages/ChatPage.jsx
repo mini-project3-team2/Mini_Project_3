@@ -7,7 +7,8 @@ import useChatStream from '../hooks/useChatStream'
 import useDocuments from '../hooks/useDocuments'
 import { useChatStore } from '../store/chatStore'
 
-const EXAMPLES = ['이 자료의 핵심 개념을 정리해 줘', '자료에 나온 두 개념은 뭐가 달라?', '이 내용은 왜 필요한 거야?']
+// 빈칸 틀 — 자료에 나온 용어를 직접 넣게 한다 (그대로 보내면 관련도 필터에 걸려 "찾지 못했어요"가 나오므로)
+const EXAMPLES = ['○○이(가) 뭐야?', '○○와(과) △△는 뭐가 달라?', '○○은(는) 왜 필요해?']
 
 const linkBtn = 'mt-5 inline-flex min-h-11 items-center rounded-md bg-accent px-5 text-sm font-semibold text-white hover:bg-accent/90'
 
@@ -22,10 +23,10 @@ function Welcome({ items, onPick }) {
     return (
       <>
         {icon(<UploadIcon className="size-5" />)}
-        <p className="mt-4 text-2xl font-bold">아직 올린 자료가 없어요</p>
-        <p className="mt-2 text-sm text-ink/70">자료를 먼저 올려 주세요. PDF 자료를 올리면 그 내용으로 질문할 수 있어요</p>
+        <p className="mt-4 text-2xl font-bold">아직 업로드한 자료가 없어요</p>
+        <p className="mt-2 text-sm text-ink/70">자료를 먼저 업로드해 주세요. PDF 자료를 업로드하면 그 내용으로 질문할 수 있어요</p>
         <Link to="/documents" className={linkBtn}>
-          자료 올리러 가기
+          자료 업로드하러 가기
         </Link>
       </>
     )
@@ -47,7 +48,7 @@ function Welcome({ items, onPick }) {
       {icon(<BookIcon className="size-5" />)}
       <p className="mt-4 text-2xl font-bold">무엇이 궁금한가요?</p>
       <p className="mt-2 text-sm text-ink/70">
-        {ready > 0 ? `올린 자료 ${ready}개를 근거로 찾아서 답해 드려요` : '올린 자료를 근거로 찾아서 답해 드려요'}
+        {ready > 0 ? `업로드한 자료 ${ready}개를 근거로 찾아서 답해 드려요` : '업로드한 자료를 근거로 찾아서 답해 드려요'}
       </p>
       {ready > 0 && (
         <div className="mt-6">
@@ -65,6 +66,7 @@ function Welcome({ items, onPick }) {
               </li>
             ))}
           </ul>
+          <p className="mt-3 text-xs text-ink/60">자료에 나온 용어를 넣어 물어보면 더 정확해요</p>
         </div>
       )}
     </>
@@ -80,7 +82,7 @@ function liveText(m) {
   return ''
 }
 
-const nearBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 160
+const nearBottom = () => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 100
 
 export default function ChatPage() {
   const messages = useChatStore((s) => s.messages)
@@ -89,9 +91,12 @@ export default function ChatPage() {
   const { items } = useDocuments()
   const [text, setText] = useState('')
   const inputRef = useRef(null)
-  const endRef = useRef(null)
   const stick = useRef(true)
   const count = useRef(messages.length)
+  const len = messages.length
+  const last = messages.at(-1)
+  // 내용이 바뀔 때만 달라지는 값 (피드백 변경은 제외)
+  const sig = last ? `${last.id}:${last.status}:${last.answer.length}:${last.sources.length}` : ''
 
   useEffect(() => {
     const onScroll = () => {
@@ -101,12 +106,12 @@ export default function ChatPage() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // 새 질문을 보내면 항상, 답변이 이어질 때는 사용자가 아래쪽을 보고 있을 때만 따라 내려간다
+  // 새 질문을 보내면 항상, 답변이 이어질 때는 사용자가 아래쪽을 보고 있을 때만 페이지 맨 아래(입력창 아래 여백 포함)로 따라간다
   useEffect(() => {
-    const added = messages.length > count.current
-    count.current = messages.length
-    if (added || stick.current) endRef.current?.scrollIntoView({ block: 'end' })
-  }, [messages])
+    const added = len > count.current
+    count.current = len
+    if (added || stick.current) window.scrollTo({ top: document.documentElement.scrollHeight })
+  }, [len, sig])
 
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-3xl flex-col">
@@ -129,12 +134,11 @@ export default function ChatPage() {
           ))}
         </div>
       )}
-      <div ref={endRef} />
 
       <div className="sticky bottom-0 bg-bg pb-1 pt-2">
         <ChatInput busy={busy} text={text} onText={setText} inputRef={inputRef} onSend={send} onStop={stop} />
         <p className="mt-2 text-center text-xs text-ink/60">
-          답변은 내가 올린 자료만 근거로 만들어져요. 자료에 없는 내용은 추측하지 않아요.
+          답변은 내가 업로드한 자료만 근거로 만들어져요. 자료에 없는 내용은 추측하지 않아요.
         </p>
       </div>
 
