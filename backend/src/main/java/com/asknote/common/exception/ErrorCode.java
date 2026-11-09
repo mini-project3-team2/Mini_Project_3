@@ -40,6 +40,7 @@ public enum ErrorCode {
 
     // 422
     TEXT_EXTRACTION_FAILED(HttpStatus.UNPROCESSABLE_CONTENT, "문서에서 글자를 읽지 못했습니다. 스캔한 PDF는 지원하지 않습니다"),
+    TOO_MANY_PAGES(HttpStatus.UNPROCESSABLE_CONTENT, "PDF는 500쪽 이하만 올릴 수 있습니다"),
 
     // 423
     ACCOUNT_LOCKED(HttpStatus.LOCKED, "로그인에 여러 번 실패해 계정이 잠겼습니다. 잠시 후 다시 시도해 주세요"),
