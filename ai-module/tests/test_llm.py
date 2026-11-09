@@ -1,6 +1,7 @@
 """core/llm.py 단위 테스트. 실제 모델 API는 호출하지 않는다(생성·검증만 확인)."""
 
 import unittest
+from unittest.mock import patch
 
 from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
@@ -95,6 +96,47 @@ class BuildLlmTests(unittest.TestCase):
         self.assertTrue(LLM_CALL_PARAMS["streaming"])
         # Backend 60초보다 짧아야 AI가 먼저 타임아웃되어 error를 보낼 수 있다.
         self.assertLess(REQUEST_TIMEOUT_SECONDS, 60.0)
+
+
+class ReasoningEffortTests(unittest.TestCase):
+    """reasoning_effort는 Groq + gpt-oss 모델에만 넣는다(#63).
+
+    ChatGroq/ChatOpenAI 생성자에 전달된 kwargs를 직접 확인한다(속성명 추측보다 견고).
+    """
+
+    def _captured_kwargs(self, target, settings):
+        import src.core.llm as llm_module
+
+        captured = {}
+
+        def fake_ctor(**kwargs):
+            captured.update(kwargs)
+            return object()  # 네트워크 호출 없음
+
+        with patch.object(llm_module, target, side_effect=fake_ctor):
+            build_llm(settings)
+        return captured
+
+    def test_groq_gpt_oss_gets_low_reasoning_effort(self):
+        settings = make_settings(
+            llm_provider="groq", llm_model="openai/gpt-oss-20b", groq_api_key="dummy"
+        )
+        kwargs = self._captured_kwargs("ChatGroq", settings)
+        self.assertEqual(kwargs.get("reasoning_effort"), "low")
+
+    def test_groq_non_reasoning_model_has_no_reasoning_effort(self):
+        settings = make_settings(
+            llm_provider="groq", llm_model="llama-3.3-70b-versatile", groq_api_key="dummy"
+        )
+        kwargs = self._captured_kwargs("ChatGroq", settings)
+        self.assertNotIn("reasoning_effort", kwargs)
+
+    def test_openai_has_no_reasoning_effort(self):
+        settings = make_settings(
+            llm_provider="openai", llm_model="gpt-4o-mini", openai_api_key="dummy"
+        )
+        kwargs = self._captured_kwargs("ChatOpenAI", settings)
+        self.assertNotIn("reasoning_effort", kwargs)
 
 
 if __name__ == "__main__":

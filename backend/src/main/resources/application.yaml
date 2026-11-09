@@ -21,6 +21,9 @@ server:
   forward-headers-strategy: native   # Nginx 뒤에서 실제 접속 IP (감사 로그)
   tomcat:
     max-swallow-size: 12MB
+    # 업로드 파트 헤더(Content-Disposition 의 파일명 포함) 한도. Tomcat 기본 512B 면 한글 파일명 약 140자부터
+    # 크기와 무관하게 413 FILE_TOO_LARGE 로 거절됨 → 파일명 최대 255자(UTF-8 765B) + 나머지 헤더를 담도록 2KB
+    max-part-header-size: 2KB
 
 jwt:
   secret: ${JWT_SECRET}

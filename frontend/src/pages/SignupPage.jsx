@@ -55,7 +55,7 @@ export default function SignupPage() {
   return (
     <AuthCard
       title="회원가입"
-      subtitle="계정을 만들고 내 수업 자료를 올려 보세요"
+      subtitle="계정을 만들고 내 수업 자료를 업로드해 보세요"
       footer={
         <>
           이미 계정이 있으신가요?{' '}

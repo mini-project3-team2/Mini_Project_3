@@ -7,13 +7,27 @@ function FileIcon() {
   )
 }
 
-export default function SourceCard({ documentName, page }) {
+// compact: 질문 기록용 작은 칩 "파일명 · N쪽" (시안 5). 링크 없이 텍스트만
+export default function SourceCard({ documentName, page, compact = false }) {
+  const name = documentName || '이름 없는 자료'
+
+  if (compact) {
+    const label = page != null ? `${name} · ${page}쪽` : name
+    return (
+      <li className="max-w-full rounded-md border border-line bg-bg px-2 py-1 text-xs text-ink/80">
+        <span className="block truncate" title={label}>
+          {label}
+        </span>
+      </li>
+    )
+  }
+
   return (
     <li className="flex min-h-11 max-w-full items-center gap-2 rounded-lg border border-line bg-white px-3 py-2">
       <FileIcon />
       <div className="min-w-0">
         <p className="truncate text-sm" title={documentName}>
-          {documentName || '이름 없는 자료'}
+          {name}
         </p>
         {page != null && <p className="text-xs text-ink/60">{page}쪽</p>}
       </div>

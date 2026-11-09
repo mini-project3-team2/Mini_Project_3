@@ -1,10 +1,11 @@
 # =========================================================
 #  Backend (Spring Boot 4.0.x · Java 17) - 멀티스테이지 · 비root · HEALTHCHECK
-#  빌드: eclipse-temurin:17-jdk + Maven Wrapper  →  실행: eclipse-temurin:17-jre
+#  빌드: eclipse-temurin:17.0.21_9-jdk-resolute + Maven Wrapper  →  실행: eclipse-temurin:17.0.21_9-jre-resolute
 # =========================================================
 
 # ---------- 1) 빌드 단계: JDK + Maven Wrapper ----------
-FROM eclipse-temurin:17-jdk AS build
+# 베이스 이미지는 패치 버전 태그 + digest 로 고정 (보안점검서 I-4). 갱신 시 태그 · digest 를 함께 바꾸고 Trivy 재검사
+FROM eclipse-temurin:17.0.21_9-jdk-resolute@sha256:b5e475b49399b918176adc274c95e02db1057f8d6dbc891dad17d29d811c5a5c AS build
 WORKDIR /workspace
 
 # 의존성 먼저 받기 → pom.xml 이 안 바뀌면 이 레이어는 캐시 재사용
@@ -17,7 +18,7 @@ COPY src/ src/
 RUN ./mvnw -B -q package -DskipTests && cp target/*.jar app.jar
 
 # ---------- 2) 실행 단계: JRE 만 ----------
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:17.0.21_9-jre-resolute@sha256:d532593b4d17f9455bcc74b4b45046fd0f9799db3b50b3486091e3e33ad99a26
 
 # 비root 전용 사용자 (로그인 셸 없음) - 보안점검서 I-2
 RUN groupadd --system app && useradd --system --gid app --no-create-home --shell /usr/sbin/nologin app

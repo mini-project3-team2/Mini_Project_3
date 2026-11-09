@@ -15,6 +15,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -60,6 +62,17 @@ public class SecurityConfig {
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider),
                         UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    /**
+     * 기본 사용자 비활성화 — JWT 로만 인증하므로 UserDetailsService 를 쓰지 않는다
+     * 이 빈이 없으면 Spring Boot 가 기본 계정(user)을 만들고 그 비밀번호를 기동 로그에 출력함 (로그 비밀 노출 방지)
+     */
+    @Bean
+    public UserDetailsService userDetailsService() {
+        return username -> {
+            throw new UsernameNotFoundException("JWT 인증만 사용");
+        };
     }
 
     /** CORS: 허용 출처는 환경 변수 CORS_ALLOWED_ORIGINS (쉼표 구분), 와일드카드(*) 사용 안 함 */

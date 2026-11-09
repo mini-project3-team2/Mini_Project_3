@@ -9,7 +9,14 @@
 import tempfile
 import unittest
 
-from src.services.vectorstore import DEFAULT_K, SearchHit, open_collection, search
+from src.services.vectorstore import (
+    DEFAULT_K,
+    MAX_DISTANCE,
+    SearchHit,
+    filter_by_distance,
+    open_collection,
+    search,
+)
 from test_resources import test_settings
 
 OWNER = "8f14e45f-ea4d-4bb0-9f17-a93e15de9032"
@@ -100,6 +107,41 @@ class OwnerFilterSearchTests(unittest.IsolatedAsyncioTestCase):
             owner_uuid=OWNER, document_ids=[], k=DEFAULT_K,
         )
         self.assertEqual(hits, [])
+
+
+class FilterByDistanceTests(unittest.TestCase):
+    """관련도 필터 단위 테스트. 소유자 격리(search)와 분리해 거리 기준만 검증한다."""
+
+    def make_hits(self, distances):
+        return [
+            SearchHit(document_id=1, document_name="a.pdf", page=i + 1,
+                      text=f"t{i}", distance=d)
+            for i, d in enumerate(distances)
+        ]
+
+    def test_drops_hits_beyond_threshold(self):
+        # 기준값에 상대적으로: 경계(MAX_DISTANCE)·그 이하는 유지, 초과는 제거.
+        below = MAX_DISTANCE - 0.5
+        above = MAX_DISTANCE + 0.5
+        hits = self.make_hits([below, above, MAX_DISTANCE, above + 0.3])
+        kept = filter_by_distance(hits)
+        self.assertEqual([h.distance for h in kept], [below, MAX_DISTANCE])  # 순서 유지, 경계 포함
+
+    def test_all_dropped_returns_empty(self):
+        hits = self.make_hits([MAX_DISTANCE + 0.1, MAX_DISTANCE + 0.5, MAX_DISTANCE + 1.0])
+        self.assertEqual(filter_by_distance(hits), [])
+
+    def test_all_within_threshold_are_kept(self):
+        hits = self.make_hits([0.1, MAX_DISTANCE - 0.3, MAX_DISTANCE])
+        kept = filter_by_distance(hits)
+        self.assertEqual(len(kept), 3)
+        self.assertEqual(kept, hits)  # 아무것도 버리지 않고 순서 그대로
+
+    def test_boundary_is_inclusive_and_just_above_is_dropped(self):
+        # 경계값(=MAX_DISTANCE)은 유지, 바로 초과분은 제거되는지 확인.
+        hits = self.make_hits([MAX_DISTANCE, MAX_DISTANCE + 0.01])
+        kept = filter_by_distance(hits)
+        self.assertEqual([h.distance for h in kept], [MAX_DISTANCE])
 
 
 if __name__ == "__main__":

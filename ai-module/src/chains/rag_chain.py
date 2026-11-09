@@ -9,12 +9,47 @@ vectorstore.dedupe_sources가 만들고 라우터가 sources 이벤트로 내보
 따르지 않도록 시스템 규칙에 못박는다.
 """
 
+import logging
 from collections.abc import AsyncIterator
 from contextlib import aclosing
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from src.services.vectorstore import SearchHit
+
+logger = logging.getLogger(__name__)
+
+
+def _log_finish(chunk) -> None:
+    """스트림 마지막 청크에서 finish_reason·토큰 수만 DEBUG로 남긴다(본문·키 제외).
+
+    추론 모델이 추론 토큰으로 출력 예산을 소진했는지(#63) 확인하기 위한 것이다.
+    LangChain은 공급자마다 메타데이터 위치가 달라 가능한 필드를 방어적으로 탐색한다.
+    로깅 실패가 스트리밍을 막지 않도록 예외는 삼킨다.
+    """
+    if not logger.isEnabledFor(logging.DEBUG):
+        return
+    try:
+        response_meta = getattr(chunk, "response_metadata", None) or {}
+        usage_meta = getattr(chunk, "usage_metadata", None) or {}
+        finish_reason = response_meta.get("finish_reason")
+        output_tokens = usage_meta.get("output_tokens")
+        details = usage_meta.get("output_token_details") or {}
+        reasoning_tokens = details.get("reasoning")
+        if reasoning_tokens is None:
+            # 일부 공급자는 usage를 response_metadata.token_usage에 담는다.
+            token_usage = response_meta.get("token_usage") or {}
+            reasoning_tokens = (token_usage.get("completion_tokens_details") or {}).get(
+                "reasoning_tokens"
+            )
+            if output_tokens is None:
+                output_tokens = token_usage.get("completion_tokens")
+        logger.debug(
+            "query_llm_finished finish_reason=%s output_tokens=%s reasoning_tokens=%s",
+            finish_reason, output_tokens, reasoning_tokens,
+        )
+    except Exception:
+        logger.debug("query_llm_finished metadata_unavailable")
 
 # 검색 결과가 0건일 때 LLM 호출 없이 그대로 내보내는 거절 문구(팀 합의, mock과 동일).
 # 시스템 규칙 3번의 문구와 반드시 같은 문장을 쓴다.
@@ -101,9 +136,14 @@ async def astream_tokens(llm, question: str, hits: list[SearchHit]) -> AsyncIter
     messages = build_rag_messages(question, hits)
     # llm.astream도 aclosing으로 감싼다. 바깥이 닫히면(연결 끊김) 실제 LLM 스트림까지
     # 즉시 닫혀 토큰 생성·비용이 바로 멈춘다.
+    last_chunk = None
     async with aclosing(llm.astream(messages)) as stream:
         async for chunk in stream:
+            last_chunk = chunk
             content = chunk.content
             text = content if isinstance(content, str) else str(content)
             if text:
                 yield text
+    # 스트림이 정상 종료되면 마지막 청크의 메타데이터를 1회 로그한다(끊김 시엔 도달 안 함).
+    if last_chunk is not None:
+        _log_finish(last_chunk)

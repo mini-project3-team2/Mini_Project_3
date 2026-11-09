@@ -1,6 +1,7 @@
 """Persistent collection with no implicit embedding provider."""
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 import chromadb
@@ -59,8 +60,21 @@ async def open_collection(settings: Settings):
 
 from dataclasses import dataclass  # noqa: E402
 
+logger = logging.getLogger(__name__)
+
 # 검색 기본 k. DB 설계서 4장 기준(similarity, k=4). 코드 상수로 둔다.
 DEFAULT_K = 4
+
+# 관련도 필터 임계값. 컬렉션 거리 함수는 Chroma 기본 L2(제곱 유클리드)이고,
+# 임베딩이 정규화 단위 벡터라 실질 범위는 0~2다(L2² = 2 - 2·cos). "거리 <= MAX_DISTANCE"만
+# 남긴다(작을수록 유사).
+# 측정 근거(자료 2개·질문 6개, document_ids=[1,2], #53): 관련 있는 질문의 1위 거리는
+# 최대 1.31(케르크호프스의 원리), 관련 없는 질문의 1위 거리는 최소 1.41(파이썬 리스트 정렬).
+# 그 사이값 1.35로 둔다. 자료가 늘면 분포가 겹칠 수 있어 통합 후 재측정이 필요하다.
+MAX_DISTANCE = 1.35
+
+# 검색 결과 점수 로그 레벨. 기준값을 정했으므로 DEBUG로 낮춘다(튜닝 시 다시 INFO로).
+SEARCH_LOG_LEVEL = logging.DEBUG
 
 
 class SearchError(Exception):
@@ -69,11 +83,15 @@ class SearchError(Exception):
 
 @dataclass(frozen=True)
 class SearchHit:
-    """검색 결과 한 건. 출처는 LLM이 아니라 이 메타데이터로 만든다."""
+    """검색 결과 한 건. 출처는 LLM이 아니라 이 메타데이터로 만든다.
+
+    distance는 컬렉션의 거리(L2²). 작을수록 질문과 유사하다. 관련도 필터에 쓴다.
+    """
     document_id: int
     document_name: str
     page: int
     text: str
+    distance: float
 
 
 def owner_document_filter(owner_uuid: str, document_ids: list[int]) -> dict:
@@ -90,8 +108,9 @@ def _to_hits(result: dict) -> list[SearchHit]:
     """Chroma query 응답(단일 질의)에서 검색 순서를 유지해 SearchHit로 변환한다."""
     documents = (result.get("documents") or [[]])[0]
     metadatas = (result.get("metadatas") or [[]])[0]
+    distances = (result.get("distances") or [[]])[0]
     hits: list[SearchHit] = []
-    for text, metadata in zip(documents, metadatas):
+    for text, metadata, distance in zip(documents, metadatas, distances):
         metadata = metadata or {}
         hits.append(
             SearchHit(
@@ -99,6 +118,7 @@ def _to_hits(result: dict) -> list[SearchHit]:
                 document_name=str(metadata["document_name"]),
                 page=int(metadata["page"]),
                 text=str(text),
+                distance=float(distance),
             )
         )
     return hits
@@ -127,12 +147,32 @@ async def search(
             query_embeddings=[query_embedding],
             n_results=k,
             where=where,
-            include=["documents", "metadatas"],
+            include=["documents", "metadatas", "distances"],
         )
     except Exception:
         # 원인 원문을 숨기고 검색 실패로만 분류한다.
         raise SearchError("SEARCH_ERROR") from None
-    return _to_hits(result)
+    hits = _to_hits(result)
+    # 관련도 기준값을 정하기 위한 점수 로그. 필터 전 전체 결과의 식별자·거리만 남기고,
+    # 청크 본문·질문 내용은 남기지 않는다. 기준 확정 후 SEARCH_LOG_LEVEL을 DEBUG로 낮춘다.
+    if logger.isEnabledFor(SEARCH_LOG_LEVEL):
+        for hit in hits:
+            logger.log(
+                SEARCH_LOG_LEVEL,
+                "query_search_result doc_id=%s page=%s distance=%.4f",
+                hit.document_id, hit.page, hit.distance,
+            )
+    return hits
+
+
+def filter_by_distance(hits: list[SearchHit], max_distance: float = MAX_DISTANCE) -> list[SearchHit]:
+    """거리가 기준보다 큰(덜 관련된) 조각을 버린다. 순서는 유지한다.
+
+    라우터가 search 직후 한 번 호출해, 걸러진 결과를 sources와 LLM 근거 자료 양쪽에
+    똑같이 넘긴다. 전부 걸러지면 빈 리스트가 되어 기존 0건 처리(거절 문구)가 그대로 돈다.
+    소유자 격리(search의 where)와는 분리된 단계다.
+    """
+    return [hit for hit in hits if hit.distance <= max_distance]
 
 
 def dedupe_sources(hits: list[SearchHit]) -> list[dict]:

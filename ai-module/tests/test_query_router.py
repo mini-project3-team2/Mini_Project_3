@@ -163,6 +163,31 @@ class QueryRouterTests(unittest.TestCase):
         import json
         self.assertEqual(json.loads(events[1][1])["text"], NO_CONTEXT_MESSAGE)
 
+    def test_all_filtered_by_distance_falls_back_to_refusal(self):
+        # 질문은 axis 0로 임베딩된다. 소유자·문서는 맞지만 벡터가 직교(axis 1)라
+        # 거리 2.0 → MAX_DISTANCE(1.35) 초과로 관련도 필터에 전부 걸러진다.
+        self.seed("far", owner=OWNER, document_id=12, name="a.pdf", page=1, axis=1)
+        build = patch("src.api.routers.query.build_llm")
+        with build as build_llm:
+            response = self.post(self.valid_body())
+            build_llm.assert_not_called()  # 전부 걸러지면 LLM 생성도 하지 않는다
+        events = parse_sse(response.text)
+        self.assertEqual([e for e, _ in events], ["sources", "token", "done"])
+        self.assertEqual(events[0][1], "[]")  # 걸러져서 sources 빈 배열
+        import json
+        self.assertEqual(json.loads(events[1][1])["text"], NO_CONTEXT_MESSAGE)
+
+    def test_relevant_hit_within_threshold_is_kept(self):
+        # axis 0(질문과 동일 방향) 청크는 거리 0 → 기준 이내로 유지되어 정상 답변 흐름.
+        self.seed("near", owner=OWNER, document_id=12, name="a.pdf", page=7, axis=0)
+        with patch("src.api.routers.query.build_llm",
+                   return_value=FakeLLM(["답변"])):
+            response = self.post(self.valid_body())
+        events = parse_sse(response.text)
+        self.assertEqual([e for e, _ in events], ["sources", "token", "done"])
+        self.assertEqual(events[0][1],
+                         '[{"documentId":12,"documentName":"a.pdf","page":7}]')
+
     # --- 오류 분기 -----------------------------------------------------------
     def test_embedding_error_sends_error_without_sources(self):
         self.embeddings.aembed_query.side_effect = RuntimeError("boom")
@@ -196,6 +221,39 @@ class QueryRouterTests(unittest.TestCase):
         self.assertEqual(names, ["sources", "token", "error"])
         self.assertEqual(events[-1][1], '{"code":"LLM_ERROR"}')
 
+    def test_empty_stream_sends_empty_answer_error(self):
+        # hits는 있지만 LLM이 토큰을 하나도 내지 못하면(#63 추론 예산 소진) EMPTY_ANSWER.
+        self.seed("c1", owner=OWNER, document_id=12, name="a.pdf", page=3, axis=0)
+
+        class EmptyLLM:
+            def astream(self, messages):
+                async def gen():
+                    return
+                    yield  # (도달하지 않음) gen을 async generator로 만들기 위한 표식
+                return gen()
+
+        with patch("src.api.routers.query.build_llm", return_value=EmptyLLM()):
+            response = self.post(self.valid_body())
+        events = parse_sse(response.text)
+        names = [e for e, _ in events]
+        self.assertEqual(names, ["sources", "error"])  # token 없음, done 없음
+        self.assertEqual(events[-1][1], '{"code":"EMPTY_ANSWER"}')
+
+    def test_whitespace_only_answer_sends_empty_answer_error(self):
+        # 공백만 보낸 경우도 EMPTY_ANSWER. 공백 token이 먼저 나간 뒤 error가 와도 된다.
+        self.seed("c1", owner=OWNER, document_id=12, name="a.pdf", page=4, axis=0)
+
+        with patch("src.api.routers.query.build_llm",
+                   return_value=FakeLLM(["  ", "\n", " "])):
+            response = self.post(self.valid_body())
+        events = parse_sse(response.text)
+        names = [e for e, _ in events]
+        # 공백 token들이 먼저 나가고, 마지막은 done이 아니라 error여야 한다.
+        self.assertEqual(names[0], "sources")
+        self.assertEqual(names[-1], "error")
+        self.assertEqual(events[-1][1], '{"code":"EMPTY_ANSWER"}')
+        self.assertNotIn("done", names)
+
 
 class ClientDisconnectTests(unittest.IsolatedAsyncioTestCase):
     """클라이언트 끊김: 생성기를 소비하는 task를 첫 token 이후 cancel하면
@@ -221,7 +279,8 @@ class ClientDisconnectTests(unittest.IsolatedAsyncioTestCase):
                         cancelled["value"] = True
                 return gen()
 
-        hit = SimpleNamespace(document_id=1, document_name="a.pdf", page=1, text="t")
+        # 관련도 필터를 통과하도록 기준(MAX_DISTANCE) 이내 거리를 명시한다.
+        hit = SimpleNamespace(document_id=1, document_name="a.pdf", page=1, text="t", distance=0.1)
 
         async def fake_search(collection, vector, *, owner_uuid, document_ids, k=4):
             return [hit]

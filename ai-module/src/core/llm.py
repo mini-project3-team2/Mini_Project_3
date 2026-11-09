@@ -19,6 +19,17 @@ GROQ = "groq"
 OPENAI = "openai"
 SUPPORTED_PROVIDERS = (GROQ, OPENAI)
 
+# Groq 추론 모델(gpt-oss) 전용 설정. 추론에 출력 예산을 다 쓰고 답변 토큰 0개로
+# 끝나는 문제(#63)를 막기 위해 추론 노력을 낮춘다. Groq 허용값은 low/medium/high이고
+# none은 거부(400)된다. reasoning_effort는 추론 모델에서만 받으므로, Groq라도 비추론
+# 모델(예: llama-3.3-70b-versatile)로 바꾸면 거부될 수 있어 gpt-oss 계열에만 넣는다.
+GROQ_REASONING_PREFIX = "openai/gpt-oss"
+GROQ_REASONING_EFFORT = "low"
+
+
+def _uses_groq_reasoning(provider: str, model: str) -> bool:
+    return provider == GROQ and model.startswith(GROQ_REASONING_PREFIX)
+
 # 생성 답변 길이 상한. 문서에 구체값이 없어(아키텍처 6.3은 "max_tokens 제한"만 언급)
 # 우리가 정한 기본값이다. 환경변수로 빼지 않고 코드 상수로 둔다.
 # 주의: 추론 모델에서는 이 예산에 추론 토큰도 함께 포함된다.
@@ -84,6 +95,9 @@ def build_llm(settings: Settings):
     params = dict(LLM_CALL_PARAMS)
 
     if provider == GROQ:
+        # gpt-oss 추론 모델일 때만 reasoning_effort를 넣는다(다른 Groq 모델엔 넣지 않음).
+        if _uses_groq_reasoning(provider, model):
+            params["reasoning_effort"] = GROQ_REASONING_EFFORT
         return ChatGroq(
             model=model,
             api_key=api_key,

@@ -11,9 +11,9 @@ export const MAX_FILE = 10 * 1024 * 1024
 // 화면 검사는 보조 — 최종 검증은 서버(PdfValidator: 확장자 + %PDF- 내용 확인)
 export function checkPdf(file) {
   if (!file) return '파일을 선택해 주세요.'
-  if (file.size === 0) return '빈 파일은 올릴 수 없어요.'
-  if (file.size > MAX_FILE) return '10MB 이하의 PDF만 올릴 수 있어요.'
-  if (!file.name.trim().toLowerCase().endsWith('.pdf')) return 'PDF 파일만 올릴 수 있어요.'
+  if (file.size === 0) return '빈 파일은 업로드할 수 없어요.'
+  if (file.size > MAX_FILE) return '10MB 이하의 PDF만 업로드할 수 있어요.'
+  if (!file.name.trim().toLowerCase().endsWith('.pdf')) return 'PDF 파일만 업로드할 수 있어요.'
   return ''
 }
 
