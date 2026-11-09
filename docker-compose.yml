@@ -22,6 +22,10 @@ services:
   database:
     image: mariadb:10.11.19@sha256:d769e37960821dfdcf096954f6e7ac89f747e116c1bba98e48edd265dfc7deae   # 패치 버전 + digest 고정 (보안점검서 I-4)
     restart: unless-stopped
+    # 컨테이너 권한 최소화 (보안점검서 I-2): 실행 중 권한 상승 금지
+    #  cap_drop 은 적용하지 않음 — 공식 이미지가 root 로 시작해 데이터 폴더 소유권 변경(chown) 후 mysql 사용자로 전환(gosu)하므로 해당 권한 필요
+    security_opt:
+      - no-new-privileges:true
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?.env 에 MARIADB_ROOT_PASSWORD 를 설정하세요}
       MARIADB_DATABASE: ${MARIADB_DATABASE:?.env 에 MARIADB_DATABASE 를 설정하세요}
@@ -48,6 +52,11 @@ services:
   ai-service:
     build: ./ai-module
     restart: unless-stopped
+    # 컨테이너 권한 최소화 (보안점검서 I-2): 실행 중 권한 상승 금지 + Linux capability 전부 제거 (비root 실행이라 추가 권한 불필요)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       # 받는 값: 내부 토큰, LLM · 임베딩 설정, API 키 / 받지 않는 값: DB, JWT, 관리자 계정
       AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN}
@@ -80,6 +89,11 @@ services:
   backend:
     build: ./backend
     restart: unless-stopped
+    # 컨테이너 권한 최소화 (보안점검서 I-2): 실행 중 권한 상승 금지 + Linux capability 전부 제거 (비root 실행이라 추가 권한 불필요)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     environment:
       # 받는 값: DB 계정, JWT, CORS, Actuator, 관리자 계정, AI 주소 · 내부 토큰
       # 받지 않는 값: LLM · 임베딩 설정, API 키
@@ -122,6 +136,11 @@ services:
   frontend:
     build: ./frontend                  # node 빌드 → nginx-unprivileged(비root) 실행, frontend/nginx.conf 사용
     restart: unless-stopped
+    # 컨테이너 권한 최소화 (보안점검서 I-2): 실행 중 권한 상승 금지 + Linux capability 전부 제거 (비root 실행이라 추가 권한 불필요)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     # environment 없음: 비밀 값 불필요 (VITE_* 는 빌드 결과물에 노출되므로 키를 넣지 않는다)
     ports:
       # 로컬: 127.0.0.1 에만 바인딩. 80 을 다른 프로그램이 쓰고 있으면 .env 의 FRONTEND_LOCAL_PORT 변경
