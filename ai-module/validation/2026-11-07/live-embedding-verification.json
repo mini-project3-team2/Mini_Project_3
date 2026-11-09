@@ -1,0 +1,21 @@
+{
+  "time_kst": "2026-11-07T04:15:13.524504+09:00",
+  "input_type": "one synthetic sentence, no course material",
+  "input_count": 1,
+  "request_attempts": 1,
+  "sdk_max_retries": 0,
+  "success": true,
+  "model": "text-embedding-3-small",
+  "returned_model": "text-embedding-3-small",
+  "usage": {
+    "prompt_tokens": 11,
+    "total_tokens": 11
+  },
+  "vector_count": 1,
+  "dimensions": [
+    1536
+  ],
+  "all_values_finite": true,
+  "nonzero_vector": true,
+  "elapsed_seconds": 2.206
+}

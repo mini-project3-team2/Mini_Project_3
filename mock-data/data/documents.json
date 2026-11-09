@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "memberId": 1,
+    "originalFilename": "LangChain_RAG_실습.pdf",
+    "fileSize": 2483112,
+    "status": "READY",
+    "createdAt": "2026-11-07T11:00:00"
+  },
+  {
+    "id": 2,
+    "memberId": 1,
+    "originalFilename": "Spring_Security_JWT.pdf",
+    "fileSize": 3245890,
+    "status": "READY",
+    "createdAt": "2026-11-07T11:20:00"
+  },
+  {
+    "id": 3,
+    "memberId": 1,
+    "originalFilename": "Docker_Compose_정리.pdf",
+    "fileSize": 1820334,
+    "status": "INDEXING",
+    "createdAt": "2026-11-09T09:58:00"
+  },
+  {
+    "id": 11,
+    "memberId": 3,
+    "originalFilename": "React_상태관리.pdf",
+    "fileSize": 1503221,
+    "status": "INDEXING",
+    "createdAt": "2026-11-09T10:01:00"
+  },
+  {
+    "id": 21,
+    "memberId": 5,
+    "originalFilename": "다른회원_자료.pdf",
+    "fileSize": 980112,
+    "status": "READY",
+    "createdAt": "2026-11-08T14:00:00"
+  }
+]

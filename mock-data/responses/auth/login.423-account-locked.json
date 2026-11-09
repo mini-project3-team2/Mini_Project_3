@@ -1,0 +1,8 @@
+{
+  "success": false,
+  "data": {
+    "lockedUntil": "2026-11-09T15:30:00"
+  },
+  "message": "로그인에 여러 번 실패해 계정이 잠겼습니다. 잠시 후 다시 시도해 주세요",
+  "code": "ACCOUNT_LOCKED"
+}

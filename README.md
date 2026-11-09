@@ -1,4 +1,4 @@
-# MiniProject3 - 2조 - 수업 자료 기반 AI 학습 도우미
+# MiniProject3 - 2조 - AskNote (수업 자료 기반 AI 학습 도우미)
 
 > React + Spring Boot + FastAPI(LangChain RAG) 기반 AI 서비스
 > 3차 미니프로젝트 · 2026.11.05 ~ 11.13 (산출물 제출·발표 **11/13 금**)
@@ -108,13 +108,14 @@
 ### 공식 버전 (`README.md`)
 
 > **로컬 버전 = Docker 이미지 버전 = 산출물 문서 버전** 이 같아야 합니다. (가이드 5장)
+> Docker 베이스 이미지는 패치 버전 태그 + `@sha256` digest 로 고정합니다 (실제 digest 는 각 Dockerfile · Compose 참고, 보안점검서 I-4). 이미지를 올릴 때는 태그 · digest · 이 표를 함께 갱신합니다.
 
 | 구분 | 기술 · 버전 | 버전 기준 파일 | Docker 이미지 |
 |---|---|---|---|
-| Frontend | React **19.3.x**, React Router, **Zustand**, Vite | `frontend/package.json` | `node:24-alpine` → `nginx:alpine` |
-| Backend | Spring Boot **4.0.x**, Spring Security **7.x**, JPA, Java **17** | `backend/pom.xml` | Maven + `eclipse-temurin:17-jdk` → `eclipse-temurin:17-jre` |
-| AI Module | Python **3.12**, uv **0.12.23**, FastAPI, LangChain, Tavily(필요 시) | `ai-module/.python-version`, `uv.lock` | `python:3.12-slim` (+ `ghcr.io/astral-sh/uv:0.12.23`) |
-| Database | MariaDB, Vector DB (FAISS 또는 Chroma), Flyway | `docker-compose.yml` | `mariadb:10.11` |
+| Frontend | React **19.3.x**, React Router, **Zustand**, Vite | `frontend/package.json` | `node:24.22.2-alpine3.24` → `nginxinc/nginx-unprivileged:1.31.7-alpine3.24` (비root) |
+| Backend | Spring Boot **4.0.x**, Spring Security **7.x**, JPA, Java **17** | `backend/pom.xml` | Maven + `eclipse-temurin:17.0.21_9-jdk-resolute` → `eclipse-temurin:17.0.21_9-jre-resolute` |
+| AI Module | Python **3.12**, uv **0.12.23**, FastAPI, LangChain, Tavily(필요 시) | `ai-module/.python-version`, `uv.lock` | `python:3.12.16-slim-trixie` (+ `ghcr.io/astral-sh/uv:0.12.23`) |
+| Database | MariaDB, Vector DB (FAISS 또는 Chroma), Flyway | `docker-compose.yml` | `mariadb:10.11.19` |
 | Infra | Docker, Docker Compose, GitHub Actions, AWS EC2, (Minikube / GCP GKE) | | |
 
 ### LLM · 임베딩 (가이드 3.4 · Key 는 강사 제공)
@@ -122,11 +123,13 @@
 | 구분 | 개발·테스트 (로컬) | 배포 (EC2 / K8s) |
 |---|---|---|
 | LLM | **Groq** | **OpenAI** |
-| 임베딩 | **Ollama `bge-m3`** (1024차원) | **OpenAI `text-embedding-3-small`** (1536차원) |
-| Key | `GROQ_API_KEY` | `OPENAI_API_KEY` |
+| 임베딩 | **OpenAI `text-embedding-3-small`** (1536차원) | **OpenAI `text-embedding-3-small`** (1536차원) |
+| Key | `GROQ_API_KEY` + `OPENAI_API_KEY`(임베딩) | `OPENAI_API_KEY` |
 
+- **임베딩은 모든 환경에서 `text-embedding-3-small` 하나만 씁니다.** (팀 회의 결정 · Ollama 미사용)
 - **코드 수정 없이 환경변수로만 전환**: `LLM_PROVIDER` · `LLM_MODEL` · `EMBEDDING_PROVIDER` · `EMBEDDING_MODEL`
-- 차원이 달라 **개발 인덱스를 배포로 복사하지 않고 다시 적재(인덱싱)** 합니다. 경로에 모델명을 넣습니다. (예: `faiss_index/docs_bge-m3/`)
+- 저장 경로·컬렉션 이름에 모델명을 넣습니다. (예: `study_materials_text-embedding-3-small`) 모델을 바꾸면 다시 적재합니다.
+- 개발 중에도 적재·질문 텍스트가 OpenAI API 로 전송되고 `OPENAI_API_KEY` 사용량이 차감됩니다.
 - OpenAI 모델로 통합 테스트합니다. (OutputParser·Tool 호출 결과가 모델마다 다를 수 있음)
 
 <details>
@@ -178,8 +181,8 @@ uv self update 0.12.23
 |---|---|
 | Backend | JDK 17 - Temurin <https://adoptium.net/> |
 | Frontend | Node.js 24 LTS - <https://nodejs.org/> (또는 nvm-windows / fnm) |
-| AI | Ollama <https://ollama.com/download> → `ollama pull bge-m3` |
-| 보안 점검 (Day 4) | Burp Suite |
+| AI | 추가 설치 없음 (임베딩은 OpenAI API · `.env` 에 `OPENAI_API_KEY` 필요) |
+| 보안 점검 (11/10 화) | Burp Suite |
 | DevOps | Docker Hub 계정·Access Token, AWS 계정·EC2 키페어 |
 
 **설치 확인**
@@ -190,7 +193,6 @@ docker compose version     # v2 이상 (docker-compose v1 사용 금지)
 uv --version               # 0.12.23
 java -version              # Backend: 17
 node -v                    # Frontend: v24.x
-ollama list                # AI: bge-m3 표시
 ```
 
 ### 3.2 저장소 최초 세팅 (1회)
@@ -223,7 +225,7 @@ cp .env.example .env
 | `JWT_SECRET`<br>`AI_INTERNAL_TOKEN` | **각자** 랜덤 생성 | `openssl rand -hex 32` |
 | `GROQ_API_KEY` | **강사 제공** (팀 DM 으로만 공유) | |
 | `LLM_MODEL` | **AI 담당이 정해 공지** (Groq 모델명) | |
-| `OPENAI_API_KEY` | 통합 테스트부터 (강사 제공) | |
+| `OPENAI_API_KEY` | **강사 제공** (팀 DM 으로만 공유) - 임베딩용으로 **AI 모듈 개발부터** 필요 | |
 | `TAVILY_API_KEY`, `LANGSMITH_*` | 사용할 때만 | |
 | 나머지 | `.env.example` 기본값 그대로 | |
 
@@ -248,13 +250,13 @@ docker compose ps         # database 가 (healthy) 이면 완료
 | 이미 **생성되어 병합됨** | [합류하는 팀원](#합류하는-팀원) 명령만 실행 |
 
 > - 각 폴더의 기존 파일(`.dockerignore`, `.env.example`, `.nvmrc`, `.python-version`)을 **지우지 마세요.**
-> - 2차 프로젝트·수업 실습 코드를 **재사용해도 됩니다** (가이드 1.2). 원본의 `.git` 폴더를 빼고 복사한 뒤 아래 설정을 맞춥니다.
-> - **Day 2 부터 인증·소유자 검증을 함께 구현**합니다. (가이드 4장 - 보안을 마지막에 몰지 않음)
+> - 수업 실습 코드를 **재사용해도 됩니다** (가이드 1.2). 원본의 `.git` 폴더를 빼고 복사한 뒤 아래 설정을 맞춥니다.
+> - **개발 초기부터 인증·소유자 검증을 함께 구현**합니다. (가이드 4장 - 보안을 마지막에 몰지 않음)
 
 ### 합류하는 팀원
 
 ```bash
-git checkout main && git pull
+git checkout develop && git pull origin develop
 docker compose up -d                 # DB (Docker Desktop 실행 상태)
 
 # ↓ 내 파트 하나만 실행 (저장소 최상위에서)
@@ -285,7 +287,7 @@ git checkout -b feature/<기능>
    | Jackson 3 | 패키지 `com.fasterxml.jackson` → `tools.jackson` |
    | Security 7 | `SecurityConfig` 이전 시 삭제된 API 컴파일 오류 확인 |
 
-5. **`application.yml`**:
+5. **`application.yaml`**:
    ```yaml
    spring:
      config:
@@ -314,7 +316,7 @@ git checkout -b feature/<기능>
    | 실행 위치 | `DB_HOST` | `DB_PORT` | `AI_SERVICE_URL` |
    |---|---|---|---|
    | PC 에서 직접 | `localhost` | `DB_LOCAL_PORT` 값 | `http://localhost:8000` |
-   | Compose 안 (Day 3~) | `database` | `3306` | `http://ai-service:8000` |
+   | Compose 안 (통합 이후) | `database` | `3306` | `http://ai-service:8000` |
 
    - Actuator: **`/actuator/health` 만 `permitAll()`** (Docker HEALTHCHECK 용), 나머지 `/actuator/**` 는 ADMIN 전용. health 규칙을 먼저 작성합니다.
 6. 패키지: `controller/` `service/` `repository/` `entity/` `dto/` `config/`
@@ -368,7 +370,7 @@ git checkout -b feature/<기능>
    cd ai-module
    uv init --app .
    uv add fastapi "uvicorn[standard]" python-dotenv langchain langchain-community langchain-text-splitters
-   uv add langchain-groq langchain-ollama langchain-openai   # 개발(Groq·Ollama) / 배포(OpenAI)
+   uv add langchain-groq langchain-openai   # LLM 개발(Groq) / 배포(OpenAI) · 임베딩 공통(OpenAI)
    uv add faiss-cpu               # 또는 langchain-chroma
    uv add pypdf docx2txt          # 업로드 문서 로더 (지원 형식은 팀 확정)
    uv add langchain-tavily        # 웹 검색 Tool (필요 시)
@@ -379,8 +381,8 @@ git checkout -b feature/<기능>
    - 헬스체크 `GET /health` 필수 (Compose·Dockerfile HEALTHCHECK)
 3. `.env`: `load_dotenv()` 가 상위 폴더의 루트 `.env` 를 찾습니다.
 4. **모델 전환** (가이드 3.4): `LLM_PROVIDER`/`LLM_MODEL`, `EMBEDDING_PROVIDER`/`EMBEDDING_MODEL` 로 분기. **모델명·공급자·키를 코드에 쓰지 않습니다.**
-   - 인덱스 경로에 모델명: `faiss_index/docs_bge-m3/`, `faiss_index/docs_text-embedding-3-small/`
-   - 배포(EC2)는 OpenAI 임베딩이므로 EC2 에 Ollama 불필요
+   - 임베딩은 개발·배포 모두 `text-embedding-3-small` (Ollama 불필요)
+   - 인덱스 경로·컬렉션에 모델명: `study_materials_text-embedding-3-small`
 5. **웹 검색** (가이드 3.5, 필요 시): `TavilySearch(max_results=3)` 를 RAG 검색 Tool 과 함께 `create_agent(tools=[...])` 에 등록, 시스템 프롬프트에 "내부 문서 우선, 없으면 웹 검색 + 출처(URL) 표시"
    - 웹 검색 결과는 외부 입력 (간접 Prompt Injection 주의)
    - Tool 호출은 **Groq·OpenAI 둘 다** 테스트
@@ -591,7 +593,7 @@ Issue 템플릿 항목 (`.github/ISSUE_TEMPLATE/security.md`)
   | React 18 / Redux | 19.3.x / **Zustand** |
   | Python 3.11 / `python:3.11-slim` | 3.12 / `python:3.12-slim` |
   | `node:20-alpine` | `node:24-alpine` |
-  | 벡터 차원 1536 (단일) | 개발 1024 / 배포 1536 |
+  | 벡터 차원 1536 (단일) | 1536 (개발·배포 공통 `text-embedding-3-small`) |
   | AI 환경변수 | 가이드 3.4 변수명 |
 
 **제출물 (11/13 금)**
@@ -615,9 +617,9 @@ Issue 템플릿 항목 (`.github/ISSUE_TEMPLATE/security.md`)
 | `pre-commit` 명령을 찾을 수 없음 | `uv tool update-shell` 후 터미널 재시작 |
 | 첫 커밋이 실패하고 파일이 수정됨 | pre-commit 이 줄바꿈 등을 자동 수정한 것 → `git add` 후 다시 커밋 |
 | 커밋이 `gitleaks` 로 막힘 | 키·토큰이 포함됨 → 해당 값 제거 (캡처·문서의 JWT 는 마스킹) |
-| Spring 기동 시 `${JWT_SECRET}` 을 못 찾음 | `application.yml` 의 `spring.config.import` 누락 또는 `.env` 위치가 최상위가 아님 |
+| Spring 기동 시 `${JWT_SECRET}` 을 못 찾음 | `application.yaml` 의 `spring.config.import` 누락 또는 `.env` 위치가 최상위가 아님 |
 | Docker 빌드 시 `./mvnw: Permission denied` | `git update-index --add --chmod=+x backend/mvnw` 후 커밋 |
 | Vite 생성 후 `.dockerignore` 등이 사라짐 | `Remove existing files` 를 선택함 → `git checkout -- frontend/` 로 복구 후 `Ignore files` 로 다시 생성 |
-| AI 모듈(Docker)이 Ollama 에 연결 못 함 | `OLLAMA_BASE_URL=http://host.docker.internal:11434` (Linux 는 Compose 에 `extra_hosts: ["host.docker.internal:host-gateway"]`) |
+| 적재·질문이 `EMBEDDING_ERROR` 로 실패 | `OPENAI_API_KEY` 누락·오류(401) 또는 호출 한도 초과(429) → `.env` 키 확인 후 잠시 뒤 재시도 |
 | 임베딩 차원 불일치 오류 | 다른 모델로 만든 인덱스를 사용 중 → 인덱스 경로에 모델명을 넣고 다시 적재 |
 | 복사해 온 폴더의 파일이 커밋되지 않음 | 안에 `.git` 폴더가 있음 (중첩 저장소) → `.git` 삭제 후 다시 `git add` |

@@ -1,0 +1,6 @@
+{
+  "success": false,
+  "data": null,
+  "message": "빈 파일은 올릴 수 없습니다",
+  "code": "EMPTY_FILE"
+}

@@ -1,0 +1,6 @@
+{
+  "success": false,
+  "data": null,
+  "message": "파일 크기는 10MB 이하여야 합니다",
+  "code": "FILE_TOO_LARGE"
+}

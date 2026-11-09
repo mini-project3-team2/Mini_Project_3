@@ -1,17 +1,31 @@
 # =========================================================
-#  로컬 개발용 Compose (Day 1: DB만 기동)
-#  실행:  cp .env.example .env  →  값 채우기  →  docker compose up -d
+#  로컬 개발용 Compose - 전체 4종 (frontend · backend · ai-service · database)
+#  실행:  cp .env.example .env  →  값 채우기  →  docker compose up -d --build
+#  접속:  http://localhost (frontend Nginx → /api 를 backend 로 프록시)
 #
-#  Day 3 에 backend / frontend / ai-service 를 이 파일에 추가합니다.
-#  운영(EC2)용은 docker-compose.prod.yml 로 분리하며,
-#  운영에서는 database / ai-service 의 ports 를 게시하지 않습니다.
+#  환경 변수 규칙 (docs/Compose_환경변수_작성가이드.md)
+#   - .env 는 루트에 하나만 두고, env_file 은 쓰지 않는다
+#   - 서비스별 environment: 에 그 서비스가 쓰는 변수만 넘긴다 (최소 권한)
+#   - 컨테이너 주소(DB_HOST, AI_SERVICE_URL)·컨테이너 내부 경로는 Compose 에 직접 적는다
+#   - SPRING_PROFILES_ACTIVE 는 넣지 않는다 (local 프로필 = 테스트 계정 자동 생성)
+#   - backend · ai-service 는 ${변수} 로만 참조 (비어 있으면 Compose 는 경고만, 검증은 각 앱 기동 시)
+#     → 아직 값이 없는 팀원도 `docker compose up -d database` 로 DB 만 띄울 수 있게 함
+#
+#  운영(EC2)용은 docker-compose.prod.yml 로 분리한다.
+#   - frontend 80 만 게시, backend · ai-service · database 는 ports 게시 안 함
+#   - 네트워크 분리: edge-net(frontend·backend) / ai-net(backend·ai-service) / db-net(backend·database, internal)
+#   ※ 로컬은 디버깅을 위해 127.0.0.1 에만 포트를 게시하므로 단일 네트워크(app-net)를 쓴다.
+#     (internal: true 네트워크에만 속한 컨테이너는 포트를 게시할 수 없음)
 #  ※ Docker Compose v2 (docker compose) 기준. 구버전 docker-compose(v1) 는 사용하지 마세요.
 # =========================================================
 services:
   database:
-    # 배포(Day 5) 전에 패치 버전까지 고정 권장 (예: mariadb:10.11.x) - 이미지 취약점 관리
-    image: mariadb:10.11
+    image: mariadb:10.11.19@sha256:d769e37960821dfdcf096954f6e7ac89f747e116c1bba98e48edd265dfc7deae   # 패치 버전 + digest 고정 (보안점검서 I-4)
     restart: unless-stopped
+    # 컨테이너 권한 최소화 (보안점검서 I-2): 실행 중 권한 상승 금지
+    #  cap_drop 은 적용하지 않음 — 공식 이미지가 root 로 시작해 데이터 폴더 소유권 변경(chown) 후 mysql 사용자로 전환(gosu)하므로 해당 권한 필요
+    security_opt:
+      - no-new-privileges:true
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?.env 에 MARIADB_ROOT_PASSWORD 를 설정하세요}
       MARIADB_DATABASE: ${MARIADB_DATABASE:?.env 에 MARIADB_DATABASE 를 설정하세요}
@@ -35,8 +49,116 @@ services:
     networks:
       - app-net
 
+  ai-service:
+    build: ./ai-module
+    restart: unless-stopped
+    # 컨테이너 권한 최소화 (보안점검서 I-2): 실행 중 권한 상승 금지 + Linux capability 전부 제거 (비root 실행이라 추가 권한 불필요)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      # 받는 값: 내부 토큰, LLM · 임베딩 설정, API 키 / 받지 않는 값: DB, JWT, 관리자 계정
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN}
+      LLM_PROVIDER: ${LLM_PROVIDER}
+      LLM_MODEL: ${LLM_MODEL}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}          # 배포(LLM_PROVIDER=openai)에서는 비워도 됨
+      OPENAI_API_KEY: ${OPENAI_API_KEY}   # 임베딩 공통
+      # 컨테이너 내부 경로는 Compose 에 직접 지정 → chroma-data 볼륨 마운트 위치와 일치
+      CHROMA_PERSIST_DIRECTORY: /data/chroma
+      TZ: Asia/Seoul
+    ports:
+      # 로컬 개발 전용 (curl 로 /internal API 확인용). 운영에서는 게시하지 않음
+      - "127.0.0.1:8000:8000"
+    volumes:
+      # Chroma(PersistentClient) 영속화 - 컨테이너를 지워도 적재한 청크 유지
+      # ※ Dockerfile 에서 비root 사용자로 실행하면 /data/chroma 를 미리 만들고 소유자를 그 사용자로 지정할 것
+      - chroma-data:/data/chroma
+    healthcheck:
+      # python:3.12-slim 에는 curl 이 없으므로 표준 라이브러리로 확인
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - app-net
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    # 컨테이너 권한 최소화 (보안점검서 I-2): 실행 중 권한 상승 금지 + Linux capability 전부 제거 (비root 실행이라 추가 권한 불필요)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    environment:
+      # 받는 값: DB 계정, JWT, CORS, Actuator, 관리자 계정, AI 주소 · 내부 토큰
+      # 받지 않는 값: LLM · 임베딩 설정, API 키
+      DB_HOST: database                        # 컨테이너 주소는 직접 지정 (.env 의 localhost 아님)
+      DB_PORT: 3306
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      ACTUATOR_EXPOSURE: ${ACTUATOR_EXPOSURE}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      AI_SERVICE_URL: http://ai-service:8000   # 컨테이너 주소는 직접 지정
+      AI_INTERNAL_TOKEN: ${AI_INTERNAL_TOKEN}
+      # (선택) 시연 때 로그인 잠금 시간 단축
+      LOGIN_LOCK_MINUTES: ${LOGIN_LOCK_MINUTES:-15}
+      TZ: Asia/Seoul
+    ports:
+      # 로컬 개발 전용 (Postman · Burp 직접 호출용). 운영에서는 게시하지 않음 (Nginx 경유)
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy     # DB 준비 전 기동 → Flyway 실패 방지
+      ai-service:
+        condition: service_healthy
+    healthcheck:
+      # /actuator/health 는 permitAll (UP/DOWN 만). Dockerfile 베이스 이미지에 curl 이 있어야 함
+      #  (eclipse-temurin:17-jre 는 포함, *-alpine 변형은 미포함 → 사용 시 wget 으로 교체)
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - app-net
+
+  frontend:
+    build: ./frontend                  # node 빌드 → nginx-unprivileged(비root) 실행, frontend/nginx.conf 사용
+    restart: unless-stopped
+    # 컨테이너 권한 최소화 (보안점검서 I-2): 실행 중 권한 상승 금지 + Linux capability 전부 제거 (비root 실행이라 추가 권한 불필요)
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # environment 없음: 비밀 값 불필요 (VITE_* 는 빌드 결과물에 노출되므로 키를 넣지 않는다)
+    ports:
+      # 로컬: 127.0.0.1 에만 바인딩. 80 을 다른 프로그램이 쓰고 있으면 .env 의 FRONTEND_LOCAL_PORT 변경
+      - "127.0.0.1:${FRONTEND_LOCAL_PORT:-80}:8080"   # 컨테이너는 비root nginx → 8080
+    depends_on:
+      backend:
+        condition: service_healthy     # nginx 가 기동 시 upstream(backend) 이름을 찾을 수 있도록
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - app-net
+
 volumes:
-  db-data:
+  db-data:       # MariaDB 데이터
+  chroma-data:   # Chroma 벡터 DB (개발 데이터는 운영으로 복사하지 않고 운영에서 재적재)
 
 networks:
   app-net:

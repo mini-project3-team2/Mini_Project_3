@@ -1,0 +1,53 @@
+{
+  "time_kst": "2026-11-07T04:23:15.220214+09:00",
+  "test_type": "single synthetic grounded-answer streaming smoke test per provider",
+  "results": [
+    {
+      "provider": "groq",
+      "model": "openai/gpt-oss-120b",
+      "reasoning_effort": "low",
+      "max_completion_tokens": 512,
+      "request_attempts": 1,
+      "retries": 0,
+      "success": true,
+      "answer_chunks": 23,
+      "returned_model": "openai/gpt-oss-120b",
+      "first_answer_seconds": 0.852,
+      "usage": {
+        "prompt_tokens": 149,
+        "completion_tokens": 40,
+        "total_tokens": 189,
+        "reasoning_tokens": 8
+      },
+      "finish_reason": "stop",
+      "answer": "테스트 도서관은 평일 오후 6시에 문을 닫습니다. [p.3]",
+      "expected_time_present": true,
+      "expected_citation_present": true,
+      "total_seconds": 0.904
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-6-luna",
+      "reasoning_effort": "none",
+      "max_completion_tokens": 512,
+      "request_attempts": 1,
+      "retries": 0,
+      "success": true,
+      "answer_chunks": 22,
+      "returned_model": "gpt-6-luna",
+      "first_answer_seconds": 1.862,
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 84,
+        "completion_tokens": 26,
+        "total_tokens": 110,
+        "reasoning_tokens": 0
+      },
+      "answer": "테스트 도서관은 평일 오후 6시에 문을 닫습니다. [p.3]",
+      "expected_time_present": true,
+      "expected_citation_present": true,
+      "total_seconds": 2.059
+    }
+  ],
+  "validation_note": "Whitespace-normalized answer check; no additional API requests."
+}

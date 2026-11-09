@@ -1,0 +1,6 @@
+{
+  "success": false,
+  "data": null,
+  "message": "문서에서 글자를 읽지 못했습니다. 스캔한 PDF는 지원하지 않습니다",
+  "code": "TEXT_EXTRACTION_FAILED"
+}

@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: asknote
+  config:
+    # Spring 은 .env 를 자동으로 읽지 않으므로 import (파일이 없으면 무시 → Docker 영향 없음)
+    import: "optional:file:.env[.properties],optional:file:../.env[.properties]"
+  datasource:
+    url: jdbc:mariadb://${DB_HOST}:${DB_PORT}/${MARIADB_DATABASE}
+    username: ${MARIADB_USER}        # root 가 아닌 앱 전용 계정
+    password: ${MARIADB_PASSWORD}
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+  jpa:
+    hibernate:
+      ddl-auto: validate             # 스키마는 Flyway 로만 변경 (update 금지)
+    open-in-view: false              # 응답(특히 SSE) 중에 DB 연결을 붙잡지 않음
+
+server:
+  forward-headers-strategy: native   # Nginx 뒤에서 실제 접속 IP (감사 로그)
+  tomcat:
+    max-swallow-size: 12MB
+    # 업로드 파트 헤더(Content-Disposition 의 파일명 포함) 한도. Tomcat 기본 512B 면 한글 파일명 약 140자부터
+    # 크기와 무관하게 413 FILE_TOO_LARGE 로 거절됨 → 파일명 최대 255자(UTF-8 765B) + 나머지 헤더를 담도록 2KB
+    max-part-header-size: 2KB
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-expiration: ${JWT_ACCESS_EXPIRATION}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION}
+
+auth:
+  login:
+    max-attempts: ${LOGIN_MAX_ATTEMPTS:5}    # 연속 실패 허용 횟수
+    lock-minutes: ${LOGIN_LOCK_MINUTES:15}   # 잠금 시간 (시연 시 환경 변수로 단축 가능)
+
+ai:
+  service-url: ${AI_SERVICE_URL:http://localhost:8000}
+  internal-token: ${AI_INTERNAL_TOKEN:}
+  timeout:
+    ingest-seconds: 120   # 적재 (nginx 150초 · 화면 180초보다 짧게)
+    delete-seconds: 10    # 청크 삭제
+    stream-seconds: 60    # 답변 스트리밍
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${ACTUATOR_EXPOSURE:health,info}   # Actuator 노출 최소화
+  endpoint:
+    health:
+      show-details: never            # health 는 UP / DOWN 만

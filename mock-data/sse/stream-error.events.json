@@ -1,0 +1,24 @@
+[
+  {
+    "event": "sources",
+    "data": [
+      {
+        "documentId": 2,
+        "documentName": "Spring_Security_JWT.pdf",
+        "page": 31
+      }
+    ]
+  },
+  {
+    "event": "token",
+    "data": {
+      "text": "토큰 원문이 "
+    }
+  },
+  {
+    "event": "error",
+    "data": {
+      "message": "지금은 답변할 수 없습니다. 잠시 후 다시 시도해 주세요"
+    }
+  }
+]

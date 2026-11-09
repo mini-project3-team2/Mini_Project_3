@@ -1,0 +1,9 @@
+event: sources
+data: [{"documentId":2,"documentName":"Spring_Security_JWT.pdf","page":31}]
+
+event: token
+data: {"text":"토큰 원문이 "}
+
+event: error
+data: {"code":"LLM_ERROR"}
+
