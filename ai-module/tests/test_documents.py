@@ -266,6 +266,14 @@ class DocumentApiTests(unittest.TestCase):
         with patch.object(self.app.state.resources, "embeddings", side_effect=RuntimeError("private key error")):
             self.assert_error(self.post(), 503, "EMBEDDING_ERROR")
 
+    def test_too_many_pages_rejected_without_embedding_or_storage(self):
+        # self.pdf는 3쪽. MAX_PAGES를 1로 낮춰 상한 초과를 만든다(실제 500쪽 생성 회피).
+        with patch("src.services.pdf.MAX_PAGES", 1):
+            self.assert_error(self.post(), 422, "TOO_MANY_PAGES")
+        # 임베딩을 호출하지 않고, Chroma 클라이언트도 만들지 않는다(저장 없음).
+        self.embeddings.aembed_documents.assert_not_called()
+        self.assertIsNone(self.app.state.resources._collection)
+
     def test_pdf_time_is_deducted_before_external_calls(self):
         def slow(*args, **kwargs):
             time.sleep(0.02)
