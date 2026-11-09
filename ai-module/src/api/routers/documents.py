@@ -43,7 +43,7 @@ async def finish_before_cancelling(awaitable):
     responses={code: {"description": description} for code, description in {
         400: "INVALID_INPUT / EMPTY_FILE / INVALID_FILE_TYPE",
         401: "Unauthorized", 409: "DOCUMENT_ALREADY_EXISTS / INGESTION_IN_PROGRESS",
-        413: "FILE_TOO_LARGE", 422: "TEXT_EXTRACTION_FAILED",
+        413: "FILE_TOO_LARGE", 422: "TEXT_EXTRACTION_FAILED / TOO_MANY_PAGES",
         500: "INTERNAL_ERROR", 503: "EMBEDDING_ERROR / STORAGE_ERROR / INGESTION_TIMEOUT",
     }.items()},
     openapi_extra={"requestBody": {"required": True, "content": {

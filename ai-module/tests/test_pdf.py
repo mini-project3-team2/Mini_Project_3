@@ -9,8 +9,9 @@ from pypdf.generic import (
     DecodedStreamObject, DictionaryObject, NameObject,
 )
 
+from src.services import pdf as pdf_module
 from src.services.pdf import (
-    MAX_PDF_BYTES, PdfProcessingError, prepare_pdf, staged_pdf,
+    MAX_PAGES, MAX_PDF_BYTES, PdfProcessingError, prepare_pdf, staged_pdf,
 )
 
 
@@ -137,6 +138,37 @@ class PdfTests(unittest.TestCase):
         with self.assertRaises(OSError):
             with staged_pdf(BrokenStream(), "a.pdf", temp_directory=self.root):
                 self.fail("must not yield")
+        self.assert_clean()
+
+    def test_max_pages_constant_is_500(self):
+        # 설계서(DB 4장·API 6.1) 수치 회귀 방지.
+        self.assertEqual(MAX_PAGES, 500)
+
+    def test_page_count_boundary(self):
+        # 실제 500쪽 생성은 무거워 MAX_PAGES를 작게 patch해 경계 로직을 검증한다.
+        # 경계(상한과 같은 쪽수)는 통과, 상한+1은 TOO_MANY_PAGES(422)로 거부.
+        with patch.object(pdf_module, "MAX_PAGES", 2):
+            texts = ["p1", "p2"]
+            chunks = self.prepare(synthetic_pdf(texts))
+            self.assertEqual([c.metadata["page"] for c in chunks], [1, 2])  # 2쪽 통과
+            self.assert_clean()
+
+            with self.assertRaises(PdfProcessingError) as caught:
+                self.prepare(synthetic_pdf(["p1", "p2", "p3"]))  # 3쪽 → 초과
+            self.assertEqual(
+                (caught.exception.code, caught.exception.status_code),
+                ("TOO_MANY_PAGES", 422),
+            )
+            self.assert_clean()  # 거부 시 임시 파일 정리
+
+    def test_too_many_pages_checked_before_text_extraction(self):
+        # 페이지 초과면 PyPDFLoader(본문 추출)를 아예 호출하지 않아야 한다.
+        with patch.object(pdf_module, "MAX_PAGES", 1), \
+             patch("src.services.pdf.PyPDFLoader") as loader:
+            with self.assertRaises(PdfProcessingError) as caught:
+                self.prepare(synthetic_pdf(["p1", "p2"]))
+            self.assertEqual(caught.exception.code, "TOO_MANY_PAGES")
+            loader.assert_not_called()  # 본문 추출 단계 진입 안 함
         self.assert_clean()
 
 
