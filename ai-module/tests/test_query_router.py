@@ -221,6 +221,39 @@ class QueryRouterTests(unittest.TestCase):
         self.assertEqual(names, ["sources", "token", "error"])
         self.assertEqual(events[-1][1], '{"code":"LLM_ERROR"}')
 
+    def test_empty_stream_sends_empty_answer_error(self):
+        # hits는 있지만 LLM이 토큰을 하나도 내지 못하면(#63 추론 예산 소진) EMPTY_ANSWER.
+        self.seed("c1", owner=OWNER, document_id=12, name="a.pdf", page=3, axis=0)
+
+        class EmptyLLM:
+            def astream(self, messages):
+                async def gen():
+                    return
+                    yield  # (도달하지 않음) gen을 async generator로 만들기 위한 표식
+                return gen()
+
+        with patch("src.api.routers.query.build_llm", return_value=EmptyLLM()):
+            response = self.post(self.valid_body())
+        events = parse_sse(response.text)
+        names = [e for e, _ in events]
+        self.assertEqual(names, ["sources", "error"])  # token 없음, done 없음
+        self.assertEqual(events[-1][1], '{"code":"EMPTY_ANSWER"}')
+
+    def test_whitespace_only_answer_sends_empty_answer_error(self):
+        # 공백만 보낸 경우도 EMPTY_ANSWER. 공백 token이 먼저 나간 뒤 error가 와도 된다.
+        self.seed("c1", owner=OWNER, document_id=12, name="a.pdf", page=4, axis=0)
+
+        with patch("src.api.routers.query.build_llm",
+                   return_value=FakeLLM(["  ", "\n", " "])):
+            response = self.post(self.valid_body())
+        events = parse_sse(response.text)
+        names = [e for e, _ in events]
+        # 공백 token들이 먼저 나가고, 마지막은 done이 아니라 error여야 한다.
+        self.assertEqual(names[0], "sources")
+        self.assertEqual(names[-1], "error")
+        self.assertEqual(events[-1][1], '{"code":"EMPTY_ANSWER"}')
+        self.assertNotIn("done", names)
+
 
 class ClientDisconnectTests(unittest.IsolatedAsyncioTestCase):
     """클라이언트 끊김: 생성기를 소비하는 task를 첫 token 이후 cancel하면
