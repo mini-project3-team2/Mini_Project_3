@@ -83,7 +83,6 @@ export default function SignupPage() {
           label="비밀번호"
           type="password"
           autoComplete="new-password"
-          maxLength={20}
           placeholder="비밀번호를 입력하세요"
           value={pw}
           onChange={(e) => setPw(e.target.value)}
@@ -94,7 +93,6 @@ export default function SignupPage() {
           label="비밀번호 확인"
           type="password"
           autoComplete="new-password"
-          maxLength={20}
           placeholder="비밀번호를 한 번 더 입력하세요"
           value={pw2}
           onChange={(e) => setPw2(e.target.value)}
