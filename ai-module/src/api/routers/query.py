@@ -83,10 +83,12 @@ async def _event_stream(request: Request, query: QueryRequest):
 
     # 5) 답변 토큰 스트리밍. aclosing으로 감싸 어떤 이유로 중단되든(클라이언트 끊김
     #    → GeneratorExit/CancelledError) 안쪽 LLM 스트림이 즉시 닫히게 한다(비용 방어).
+    answer_parts: list[str] = []
     try:
         llm = build_llm(settings)
         async with aclosing(astream_tokens(llm, query.question, hits)) as stream:
             async for text in stream:
+                answer_parts.append(text)
                 yield _sse("token", {"text": text})
     except asyncio.CancelledError:
         # 클라이언트 끊김: error를 보내지 않고 조용히 종료한다(비용 방어).
@@ -96,7 +98,15 @@ async def _event_stream(request: Request, query: QueryRequest):
         yield _sse("error", {"code": "LLM_ERROR"})
         return
 
-    # 5) 정상 완료. AI는 빈 객체만 보내고, chatId는 Backend가 붙인다.
+    # 6) 빈 답변 안전장치(#63): hits가 있는데 LLM이 실질 내용을 못 냈을 때(토큰 0개 또는
+    #    공백만, 예: 추론 모델이 추론에 예산을 다 씀) done 대신 error를 보낸다. 공백 token이
+    #    먼저 나갔더라도 Backend는 error면 저장하지 않는다. 검색 0건 거절 흐름(위 4)과 무관.
+    if not "".join(answer_parts).strip():
+        logger.warning("query_stream_failed stage=llm code=EMPTY_ANSWER")
+        yield _sse("error", {"code": "EMPTY_ANSWER"})
+        return
+
+    # 7) 정상 완료. AI는 빈 객체만 보내고, chatId는 Backend가 붙인다.
     yield _sse("done", {})
 
 
