@@ -14,12 +14,16 @@ from typing import BinaryIO
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pypdf import PdfReader
 from pypdf.errors import PyPdfError
 
 MAX_PDF_BYTES = 10 * 1024 * 1024
 READ_SIZE = 64 * 1024
 CHUNK_SIZE = 800
 CHUNK_OVERLAP = 100
+# 페이지 수 상한. 악성 PDF가 전체 파싱으로 시간·메모리를 점유하는 것을 1차로 막는다.
+# 텍스트를 읽기 전에 페이지 수부터 확인해 초과하면 거부한다(DB 설계서 4장, API 설계서 6.1).
+MAX_PAGES = 500
 
 
 class PdfProcessingError(Exception):
@@ -63,6 +67,22 @@ def staged_pdf(
         if signature != b"%PDF-":
             raise PdfProcessingError("INVALID_FILE_TYPE", 400)
         yield path
+
+
+def check_page_count(path: Path) -> None:
+    """전체 텍스트를 읽기 전에 페이지 수만 확인하고, 500쪽 초과면 거부한다.
+
+    PyPDFLoader로 본문을 추출하기 전에 호출한다. 읽을 수 없는 PDF(손상·암호화 등
+    PyPdfError)는 extract_chunks와 같은 정책으로 TEXT_EXTRACTION_FAILED(422)로 매핑한다.
+    디스크·스트림 오류나 예상치 못한 버그(PyPdfError가 아닌 예외)는 422로 감추지 않고
+    그대로 전파한다. 페이지 수 세기도 CPU/메모리를 쓸 수 있으나 전량 파싱보다는 가볍다.
+    """
+    try:
+        page_count = len(PdfReader(str(path)).pages)
+    except PyPdfError:
+        raise PdfProcessingError("TEXT_EXTRACTION_FAILED", 422) from None
+    if page_count > MAX_PAGES:
+        raise PdfProcessingError("TOO_MANY_PAGES", 422)
 
 
 def extract_chunks(
@@ -119,6 +139,8 @@ def prepare_pdf(
     duplicate checks are responsibilities of the future ingestion service.
     """
     with staged_pdf(source, filename, temp_directory=temp_directory) as path:
+        # 본문 추출 전에 페이지 수부터 확인해 상한 초과 PDF를 먼저 거부한다.
+        check_page_count(path)
         return extract_chunks(
             path, owner_uuid=owner_uuid, document_id=document_id,
             document_name=document_name,
