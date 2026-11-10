@@ -1,0 +1,87 @@
+# Backend (Spring Boot) — Compose 의 backend 서비스
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: asknote
+  labels: {app: backend}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: backend}
+  template:
+    metadata:
+      labels: {app: backend}
+    spec:
+      # Compose 의 depends_on(service_healthy) 대신: DB 포트 · AI /health 가 응답할 때까지 대기
+      # (같은 backend 이미지의 bash · curl 사용 → 별도 이미지 추가 없음)
+      initContainers:
+        - name: wait-dependencies
+          image: ekrong01/asknote-backend
+          command:
+            - bash
+            - -c
+            - |
+              until (exec 3<>/dev/tcp/database/3306) 2>/dev/null; do echo "database 대기"; sleep 3; done
+              until curl -fsS -o /dev/null http://ai-service:8000/health; do echo "ai-service 대기"; sleep 3; done
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999               # 이미지의 app 사용자 (kubectl exec ... id → uid=999(app))
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+          resources:
+            limits: {memory: 64Mi}
+      containers:
+        - name: backend
+          image: ekrong01/asknote-backend   # 태그는 kustomization.yaml 의 images 에서 지정
+          ports:
+            - containerPort: 8080
+          env:
+            - {name: TZ, valueFrom: {configMapKeyRef: {name: asknote-config, key: TZ}}}
+            - {name: DB_HOST, valueFrom: {configMapKeyRef: {name: asknote-config, key: DB_HOST}}}
+            - {name: DB_PORT, valueFrom: {configMapKeyRef: {name: asknote-config, key: DB_PORT}}}
+            - {name: MARIADB_DATABASE, valueFrom: {configMapKeyRef: {name: asknote-config, key: MARIADB_DATABASE}}}
+            - {name: MARIADB_USER, valueFrom: {configMapKeyRef: {name: asknote-config, key: MARIADB_USER}}}
+            - {name: JWT_ACCESS_EXPIRATION, valueFrom: {configMapKeyRef: {name: asknote-config, key: JWT_ACCESS_EXPIRATION}}}
+            - {name: JWT_REFRESH_EXPIRATION, valueFrom: {configMapKeyRef: {name: asknote-config, key: JWT_REFRESH_EXPIRATION}}}
+            - {name: CORS_ALLOWED_ORIGINS, valueFrom: {configMapKeyRef: {name: asknote-config, key: CORS_ALLOWED_ORIGINS}}}
+            - {name: ACTUATOR_EXPOSURE, valueFrom: {configMapKeyRef: {name: asknote-config, key: ACTUATOR_EXPOSURE}}}
+            - {name: LOGIN_LOCK_MINUTES, valueFrom: {configMapKeyRef: {name: asknote-config, key: LOGIN_LOCK_MINUTES}}}
+            - {name: AI_SERVICE_URL, valueFrom: {configMapKeyRef: {name: asknote-config, key: AI_SERVICE_URL}}}
+            - {name: MARIADB_PASSWORD, valueFrom: {secretKeyRef: {name: asknote-secret, key: MARIADB_PASSWORD}}}
+            - {name: JWT_SECRET, valueFrom: {secretKeyRef: {name: asknote-secret, key: JWT_SECRET}}}
+            - {name: AI_INTERNAL_TOKEN, valueFrom: {secretKeyRef: {name: asknote-secret, key: AI_INTERNAL_TOKEN}}}
+            - {name: ADMIN_EMAIL, valueFrom: {secretKeyRef: {name: asknote-secret, key: ADMIN_EMAIL}}}
+            - {name: ADMIN_PASSWORD, valueFrom: {secretKeyRef: {name: asknote-secret, key: ADMIN_PASSWORD}}}
+          # 비root(app) 실행 명시 + Compose 의 no-new-privileges · cap_drop: ALL 과 동일
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999               # 이미지의 app 사용자 (kubectl exec ... id → uid=999(app))
+            runAsGroup: 999
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+          resources:
+            requests: {memory: 512Mi, cpu: 250m}
+            limits: {memory: 1Gi}       # Dockerfile MaxRAMPercentage=75 → 힙 약 768MB
+          startupProbe:                  # Spring 기동 + Flyway 실행 시간 확보 (최대 약 3분)
+            httpGet: {path: /actuator/health, port: 8080}
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: {path: /actuator/health, port: 8080}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /actuator/health, port: 8080}
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend                        # frontend nginx.conf 의 proxy_pass http://backend:8080
+  namespace: asknote
+spec:
+  type: ClusterIP                      # 외부 비공개 — frontend(Nginx)를 통해서만 접근
+  selector: {app: backend}
+  ports:
+    - {port: 8080, targetPort: 8080}
