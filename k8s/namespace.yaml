@@ -1,0 +1,5 @@
+# AskNote 를 다른 리소스와 분리하는 네임스페이스
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: asknote
