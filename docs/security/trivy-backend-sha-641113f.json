@@ -1,0 +1,343 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2026-11-10T06:04:00.559147894Z",
+  "ArtifactName": "ekrong01/asknote-backend:sha-641113f",
+  "ArtifactType": "container_image",
+  "Metadata": {
+    "OS": {
+      "Family": "ubuntu",
+      "Name": "26.04"
+    },
+    "ImageID": "sha256:239d34bd626767846aa49ea9630e6bf47be6f08af62a94ec21b9c537dedb3886",
+    "DiffIDs": [
+      "sha256:5cac300e390e2fd748b258618f403b7813229929ad6de903b0c52a210a930824",
+      "sha256:5f4be2c3badedfd7149d008a4902427c98e708c70031dc19b4264160a545df19",
+      "sha256:a1b84a0afc417900d6c5e169c76df4deff6233b684b700297be190f9bfbf17c0",
+      "sha256:2612ac3f9b707727734b54fbb37e609c70807cbc51186460f3a78c4a84ad5595",
+      "sha256:347cc08f1b05909e7240db5559e8324f049d9ff60d74ec2f1b42e978024968cc",
+      "sha256:f75073f40b100816472317910ba0efbad52c084a468a37051be6c3d1a9fcf93e",
+      "sha256:d4434616382454184c5f5d2a94b38a841cfcd8d3720621298915464c180cba12",
+      "sha256:42d08f6cd9fe053372e5806ecaa97e4913e72c036e146346a1216866d53855f8",
+      "sha256:7f9ec51deae9eee07db90a5c978ca3f013d9e4dd9fb3675fb1a35efe81c02d4e"
+    ],
+    "RepoTags": [
+      "ekrong01/asknote-backend:sha-641113f"
+    ],
+    "RepoDigests": [
+      "ekrong01/asknote-backend@sha256:a54082f85a76bc16aca0ddcaa8c253ac244a08d4c7c1db59ca11cc44ff102295"
+    ],
+    "ImageConfig": {
+      "architecture": "amd64",
+      "created": "2026-11-10T05:36:28.340321692Z",
+      "history": [
+        {
+          "created": "2026-10-25T10:26:07.097258483Z",
+          "created_by": "umoci raw add-layer --image /home/buildd/rockcraft-ubuntu-cc003627bc5bab71b42ff0f8e1a41f88/images/ubuntu:rockcraft-base /home/buildd/rockcraft-ubuntu-cc003627bc5bab71b42ff0f8e1a41f88/images/.temp_layer.9587.tar --tag 26.04"
+        },
+        {
+          "created": "2026-10-25T10:26:07.51326611Z",
+          "created_by": "umoci config --image /home/buildd/rockcraft-ubuntu-cc003627bc5bab71b42ff0f8e1a41f88/images/ubuntu:26.04 --clear=config.entrypoint --clear=config.cmd",
+          "comment": "Set entrypoint",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-10-25T10:26:07.523539328Z",
+          "created_by": "umoci config --image /home/buildd/rockcraft-ubuntu-cc003627bc5bab71b42ff0f8e1a41f88/images/ubuntu:26.04 --clear=config.cmd --config.cmd /bin/bash",
+          "comment": "Set default commands",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-10-25T10:26:07.533945465Z",
+          "created_by": "umoci config --image /home/buildd/rockcraft-ubuntu-cc003627bc5bab71b42ff0f8e1a41f88/images/ubuntu:26.04 --config.env PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "comment": "Set default PATH for bare-based rock",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-10-25T10:26:07.544106373Z",
+          "created_by": "umoci config --image /home/buildd/rockcraft-ubuntu-cc003627bc5bab71b42ff0f8e1a41f88/images/ubuntu:26.04 --clear=config.labels --config.label org.opencontainers.image.version=26.04 --config.label org.opencontainers.image.title=ubuntu --config.label org.opencontainers.image.created=2026-10-25T10:26:07.538865+00:00 --config.label org.opencontainers.image.description=The Ubuntu container image maintained by Canonical\n\nUbuntu is a Debian-based Linux operating system that runs from the desktop to the cloud, to all your internet connected things.\nIt is the world's most popular operating system across public clouds and OpenStack clouds.\nIt is the number one platform for containers; from Docker to Kubernetes to LXD, Ubuntu can run your containers at scale.\nFast, secure and simple, Ubuntu powers millions of PCs worldwide.\n",
+          "comment": "Set labels",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-10-25T10:26:07.555793355Z",
+          "created_by": "umoci config --image /home/buildd/rockcraft-ubuntu-cc003627bc5bab71b42ff0f8e1a41f88/images/ubuntu:26.04 --clear=manifest.annotations --manifest.annotation org.opencontainers.image.version=26.04 --manifest.annotation org.opencontainers.image.title=ubuntu --manifest.annotation org.opencontainers.image.created=2026-10-25T10:26:07.538865+00:00 --manifest.annotation org.opencontainers.image.description=The Ubuntu container image maintained by Canonical\n\nUbuntu is a Debian-based Linux operating system that runs from the desktop to the cloud, to all your internet connected things.\nIt is the world's most popular operating system across public clouds and OpenStack clouds.\nIt is the number one platform for containers; from Docker to Kubernetes to LXD, Ubuntu can run your containers at scale.\nFast, secure and simple, Ubuntu powers millions of PCs worldwide.\n",
+          "comment": "Set annotations",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-10-25T10:26:07.568398974Z",
+          "created_by": "umoci raw add-layer --image /home/buildd/rockcraft-ubuntu-cc003627bc5bab71b42ff0f8e1a41f88/images/ubuntu:26.04 /home/buildd/rockcraft-ubuntu-cc003627bc5bab71b42ff0f8e1a41f88/images/.temp_layer.control_data.9587.tar",
+          "comment": "Add rock control metadata"
+        },
+        {
+          "created": "2026-11-03T21:57:40.456522538Z",
+          "created_by": "ENV JAVA_HOME=/opt/java/openjdk",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-11-03T21:57:40.456522538Z",
+          "created_by": "ENV PATH=/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-11-03T21:57:40.456522538Z",
+          "created_by": "ENV LANG=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-11-03T21:57:40.456522538Z",
+          "created_by": "RUN /bin/sh -c set -eux;     apt-get update;     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends         curl         wget         gnupg         fontconfig         ca-certificates p11-kit         tzdata         locales     ;     echo \"en_US.UTF-8 UTF-8\" \u003e\u003e /etc/locale.gen;     locale-gen en_US.UTF-8;     rm -rf /var/lib/apt/lists/* # buildkit",
+          "comment": "buildkit.dockerfile.v0"
+        },
+        {
+          "created": "2026-11-03T21:57:40.456522538Z",
+          "created_by": "ENV JAVA_VERSION=jdk-17.0.21+9",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-11-03T21:57:43.042056455Z",
+          "created_by": "RUN /bin/sh -c set -eux;     ARCH=\"$(dpkg --print-architecture)\";     case \"${ARCH}\" in        amd64)          ESUM='9f41bf88c7900c7097444a1bdeb84146ae692bc08842490ab098063c74bf9a8a';          BINARY_URL='https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jre_x64_linux_hotspot_17.0.21_9.tar.gz';          ;;        arm64)          ESUM='1114f09d6174f54270c3117410b5e4022b43ebc0b43b751af08b927c55ed7bb5';          BINARY_URL='https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jre_aarch64_linux_hotspot_17.0.21_9.tar.gz';          ;;        armhf)          ESUM='a1f61c0a9a76af31e6954f93ba329650ce16e556d0508227a50c6203ff012357';          BINARY_URL='https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jre_arm_linux_hotspot_17.0.21_9.tar.gz';          ;;        ppc64el)          ESUM='7836a98346529939fc1149a59c7159d0ea721c2028fbfade620d60e58293d65f';          BINARY_URL='https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jre_ppc64le_linux_hotspot_17.0.21_9.tar.gz';          ;;        s390x)          ESUM='c2f8f6c55b09a5bb9c26fbdc85cad41e10860a396da447e2ce7a182480e74945';          BINARY_URL='https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jre_s390x_linux_hotspot_17.0.21_9.tar.gz';          ;;        *)          echo \"Unsupported arch: ${ARCH}\";          exit 1;          ;;     esac;     wget --progress=dot:giga -O /tmp/openjdk.tar.gz ${BINARY_URL};     wget --progress=dot:giga -O /tmp/openjdk.tar.gz.sig ${BINARY_URL}.sig;     export GNUPGHOME=\"$(mktemp -d)\";     gpg --batch --keyserver keyserver.ubuntu.com --recv-keys 3B04D753C9050D9A5D343F39843C48A565F8F04B;     gpg --batch --verify /tmp/openjdk.tar.gz.sig /tmp/openjdk.tar.gz;     rm -rf \"${GNUPGHOME}\" /tmp/openjdk.tar.gz.sig;     echo \"${ESUM} */tmp/openjdk.tar.gz\" | sha256sum -c -;     mkdir -p \"$JAVA_HOME\";     tar --extract         --file /tmp/openjdk.tar.gz         --directory \"$JAVA_HOME\"         --strip-components 1         --no-same-owner     ;     rm -f /tmp/openjdk.tar.gz;     find \"$JAVA_HOME/lib\" -name '*.so' -exec dirname '{}' ';' | sort -u \u003e /etc/ld.so.conf.d/docker-openjdk.conf;     ldconfig;     java -Xshare:dump; # buildkit",
+          "comment": "buildkit.dockerfile.v0"
+        },
+        {
+          "created": "2026-11-03T21:57:43.142967103Z",
+          "created_by": "RUN /bin/sh -c set -eux;     echo \"Verifying install ...\";     echo \"java --version\"; java --version;     echo \"Complete.\" # buildkit",
+          "comment": "buildkit.dockerfile.v0"
+        },
+        {
+          "created": "2026-11-03T21:57:43.166855233Z",
+          "created_by": "COPY --chmod=755 entrypoint.sh /__cacert_entrypoint.sh # buildkit",
+          "comment": "buildkit.dockerfile.v0"
+        },
+        {
+          "created": "2026-11-03T21:57:43.166855233Z",
+          "created_by": "ENTRYPOINT [\"/__cacert_entrypoint.sh\"]",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-11-10T05:35:55.979700175Z",
+          "created_by": "RUN /bin/sh -c groupadd --system app \u0026\u0026 useradd --system --gid app --no-create-home --shell /usr/sbin/nologin app # buildkit",
+          "comment": "buildkit.dockerfile.v0"
+        },
+        {
+          "created": "2026-11-10T05:35:55.996504856Z",
+          "created_by": "WORKDIR /app",
+          "comment": "buildkit.dockerfile.v0"
+        },
+        {
+          "created": "2026-11-10T05:36:28.340321692Z",
+          "created_by": "COPY /workspace/app.jar app.jar # buildkit",
+          "comment": "buildkit.dockerfile.v0"
+        },
+        {
+          "created": "2026-11-10T05:36:28.340321692Z",
+          "created_by": "USER app",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-11-10T05:36:28.340321692Z",
+          "created_by": "EXPOSE [8080/tcp]",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-11-10T05:36:28.340321692Z",
+          "created_by": "HEALTHCHECK {Test:[CMD-SHELL curl -fsS http://127.0.0.1:8080/actuator/health || exit 1] Interval:15s Timeout:5s StartPeriod:40s StartInterval:0s Retries:5}",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "2026-11-10T05:36:28.340321692Z",
+          "created_by": "ENTRYPOINT [\"java\" \"-XX:MaxRAMPercentage=75\" \"-jar\" \"app.jar\"]",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        }
+      ],
+      "os": "linux",
+      "rootfs": {
+        "type": "layers",
+        "diff_ids": [
+          "sha256:5cac300e390e2fd748b258618f403b7813229929ad6de903b0c52a210a930824",
+          "sha256:5f4be2c3badedfd7149d008a4902427c98e708c70031dc19b4264160a545df19",
+          "sha256:a1b84a0afc417900d6c5e169c76df4deff6233b684b700297be190f9bfbf17c0",
+          "sha256:2612ac3f9b707727734b54fbb37e609c70807cbc51186460f3a78c4a84ad5595",
+          "sha256:347cc08f1b05909e7240db5559e8324f049d9ff60d74ec2f1b42e978024968cc",
+          "sha256:f75073f40b100816472317910ba0efbad52c084a468a37051be6c3d1a9fcf93e",
+          "sha256:d4434616382454184c5f5d2a94b38a841cfcd8d3720621298915464c180cba12",
+          "sha256:42d08f6cd9fe053372e5806ecaa97e4913e72c036e146346a1216866d53855f8",
+          "sha256:7f9ec51deae9eee07db90a5c978ca3f013d9e4dd9fb3675fb1a35efe81c02d4e"
+        ]
+      },
+      "config": {
+        "Healthcheck": {
+          "Test": [
+            "CMD-SHELL",
+            "curl -fsS http://127.0.0.1:8080/actuator/health || exit 1"
+          ],
+          "Interval": 15000000000,
+          "Timeout": 5000000000,
+          "StartPeriod": 40000000000,
+          "Retries": 5
+        },
+        "Entrypoint": [
+          "java",
+          "-XX:MaxRAMPercentage=75",
+          "-jar",
+          "app.jar"
+        ],
+        "Env": [
+          "PATH=/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "JAVA_HOME=/opt/java/openjdk",
+          "LANG=en_US.UTF-8",
+          "LANGUAGE=en_US:en",
+          "LC_ALL=en_US.UTF-8",
+          "JAVA_VERSION=jdk-17.0.21+9"
+        ],
+        "Labels": {
+          "org.opencontainers.image.created": "2026-11-10T05:35:49.446Z",
+          "org.opencontainers.image.description": "SK 쉴더스 루키즈 개발 6기 - 3차 미니 프로젝트 2조 레포",
+          "org.opencontainers.image.licenses": "",
+          "org.opencontainers.image.revision": "641113f229a56993ecb7bf9dcfefb81498255049",
+          "org.opencontainers.image.source": "https://github.com/mini-project3-team2/Mini_Project_3",
+          "org.opencontainers.image.title": "Mini_Project_3",
+          "org.opencontainers.image.url": "https://github.com/mini-project3-team2/Mini_Project_3",
+          "org.opencontainers.image.version": "latest"
+        },
+        "User": "app",
+        "WorkingDir": "/app",
+        "ExposedPorts": {
+          "8080/tcp": {}
+        }
+      }
+    }
+  },
+  "Results": [
+    {
+      "Target": "ekrong01/asknote-backend:sha-641113f (ubuntu 26.04)",
+      "Class": "os-pkgs",
+      "Type": "ubuntu",
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2026-109518",
+          "PkgID": "apt@3.2.0",
+          "PkgName": "apt",
+          "PkgIdentifier": {
+            "PURL": "pkg:deb/ubuntu/apt@3.2.0?arch=amd64\u0026distro=ubuntu-26.04",
+            "UID": "710cb081ab445fe5"
+          },
+          "InstalledVersion": "3.2.0",
+          "FixedVersion": "3.2.1ubuntu0.1",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:edafa32f5d9e4d9629f0dbc6c01e63c79ff08133c01cfb7d3363aa8bd8a614cf",
+            "DiffID": "sha256:5cac300e390e2fd748b258618f403b7813229929ad6de903b0c52a210a930824"
+          },
+          "SeveritySource": "ubuntu",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-109518",
+          "DataSource": {
+            "ID": "ubuntu",
+            "Name": "Ubuntu CVE Tracker",
+            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
+          },
+          "Title": "apt: apt: Remote code execution via hard link reuse during package download retries",
+          "Description": "On Debian, Ubuntu, and derivative Linux distributions, an on-path attacker who can manipulate the HTTP traffic (including a malicious mirror or proxy) between an APT client and an archive server triggered by a package install can trick the client into installing an attacker-controlled unverified package and achieve remote code execution with root privileges.\n\n\n\nThe vulnerability is caused by the reuse of hard links and requires the client to follow redirects and retry the download of package files. It requires the client to have a non-zero Acquire::Retries configuration setting; the value 3 is the default starting with Debian 12 (bookworm) and Ubuntu 22.04 LTS (Jammy Jellyfish), so older releases are unaffected in a default configuration",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-62",
+            "CWE-367"
+          ],
+          "VendorSeverity": {
+            "redhat": 3,
+            "ubuntu": 3
+          },
+          "CVSS": {
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V3Score": 8.1
+            }
+          },
+          "References": [
+            "http://www.openwall.com/lists/oss-security/2026/11/04/12",
+            "https://access.redhat.com/security/cve/CVE-2026-109518",
+            "https://lists.debian.org/debian-lts-announce/2026/11/msg00004.html",
+            "https://lists.debian.org/debian-security-announce/2026/msg00526.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-109518",
+            "https://ubuntu.com/blog/apt-vulnerability-fixes-available",
+            "https://ubuntu.com/security/notices/USN-8996-1",
+            "https://www.cve.org/CVERecord?id=CVE-2026-109518"
+          ],
+          "PublishedDate": "2026-11-04T16:17:33.01Z",
+          "LastModifiedDate": "2026-11-05T05:18:19.033Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2026-109518",
+          "PkgID": "libapt-pkg7.0@3.2.0",
+          "PkgName": "libapt-pkg7.0",
+          "PkgIdentifier": {
+            "PURL": "pkg:deb/ubuntu/libapt-pkg7.0@3.2.0?arch=amd64\u0026distro=ubuntu-26.04",
+            "UID": "28a38b70151af4fa"
+          },
+          "InstalledVersion": "3.2.0",
+          "FixedVersion": "3.2.1ubuntu0.1",
+          "Status": "fixed",
+          "Layer": {
+            "Digest": "sha256:edafa32f5d9e4d9629f0dbc6c01e63c79ff08133c01cfb7d3363aa8bd8a614cf",
+            "DiffID": "sha256:5cac300e390e2fd748b258618f403b7813229929ad6de903b0c52a210a930824"
+          },
+          "SeveritySource": "ubuntu",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-109518",
+          "DataSource": {
+            "ID": "ubuntu",
+            "Name": "Ubuntu CVE Tracker",
+            "URL": "https://git.launchpad.net/ubuntu-cve-tracker"
+          },
+          "Title": "apt: apt: Remote code execution via hard link reuse during package download retries",
+          "Description": "On Debian, Ubuntu, and derivative Linux distributions, an on-path attacker who can manipulate the HTTP traffic (including a malicious mirror or proxy) between an APT client and an archive server triggered by a package install can trick the client into installing an attacker-controlled unverified package and achieve remote code execution with root privileges.\n\n\n\nThe vulnerability is caused by the reuse of hard links and requires the client to follow redirects and retry the download of package files. It requires the client to have a non-zero Acquire::Retries configuration setting; the value 3 is the default starting with Debian 12 (bookworm) and Ubuntu 22.04 LTS (Jammy Jellyfish), so older releases are unaffected in a default configuration",
+          "Severity": "HIGH",
+          "CweIDs": [
+            "CWE-62",
+            "CWE-367"
+          ],
+          "VendorSeverity": {
+            "redhat": 3,
+            "ubuntu": 3
+          },
+          "CVSS": {
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+              "V3Score": 8.1
+            }
+          },
+          "References": [
+            "http://www.openwall.com/lists/oss-security/2026/11/04/12",
+            "https://access.redhat.com/security/cve/CVE-2026-109518",
+            "https://lists.debian.org/debian-lts-announce/2026/11/msg00004.html",
+            "https://lists.debian.org/debian-security-announce/2026/msg00526.html",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-109518",
+            "https://ubuntu.com/blog/apt-vulnerability-fixes-available",
+            "https://ubuntu.com/security/notices/USN-8996-1",
+            "https://www.cve.org/CVERecord?id=CVE-2026-109518"
+          ],
+          "PublishedDate": "2026-11-04T16:17:33.01Z",
+          "LastModifiedDate": "2026-11-05T05:18:19.033Z"
+        }
+      ]
+    },
+    {
+      "Target": "Java",
+      "Class": "lang-pkgs",
+      "Type": "jar"
+    },
+    {
+      "Target": "usr/bin/pebble",
+      "Class": "lang-pkgs",
+      "Type": "gobinary"
+    }
+  ]
+}
