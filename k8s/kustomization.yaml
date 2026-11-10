@@ -10,7 +10,7 @@ resources:
   - backend.yaml
   - frontend.yaml
   - networkpolicy.yaml
-# 앱 이미지 태그를 한곳에서 관리 — 운영 EC2 와 같은 sha 태그 (latest 미사용)
+# 앱 이미지 태그를 한곳에서 관리 — 11/10 테스트 당시 운영 이미지 sha 태그 (latest 미사용)
 images:
   - name: ekrong01/asknote-frontend
     newTag: sha-7d08b42

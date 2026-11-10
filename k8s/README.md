@@ -1,7 +1,7 @@
 # AskNote — Kubernetes(Minikube) 배포
 
 `docker-compose.prod.yml` 구성을 Kubernetes 리소스로 옮긴 것입니다. 운영 EC2(Compose)와 **별개로 로컬 Minikube 에서만** 실행합니다.
-이미지는 새로 빌드하지 않고 Docker Hub 의 운영 이미지(`sha-7d08b42`)를 그대로 씁니다.
+이미지는 새로 빌드하지 않고 Docker Hub 이미지 `sha-7d08b42`(11/10 테스트 당시 운영 이미지)를 그대로 씁니다.
 
 ## 구성
 
