@@ -22,25 +22,25 @@ export default function AppLayout() {
 
   return (
     <>
-      <header className="flex items-center gap-6 border-b border-line bg-white px-6 py-3">
-        <strong className="text-accent">AskNote</strong>
-        <nav className="flex gap-4">
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-white px-4 py-3 sm:flex-nowrap sm:gap-6 sm:px-6">
+        <strong className="shrink-0 text-accent">AskNote</strong>
+        <nav className="order-last flex w-full gap-4 sm:order-none sm:w-auto">
           {menus.map(([to, label]) => (
             <NavLink
               key={to}
               to={to}
-              className={({ isActive }) => (isActive ? 'font-semibold text-accent' : '')}
+              className={({ isActive }) => `whitespace-nowrap${isActive ? ' font-semibold text-accent' : ''}`}
             >
               {label}
             </NavLink>
           ))}
         </nav>
-        {email && <span className="ml-auto text-sm">{email}</span>}
+        {email && <span className="ml-auto min-w-0 flex-1 truncate text-right text-sm">{email}</span>}
         <button
           type="button"
           onClick={onLogout}
           disabled={busy}
-          className={`${email ? '' : 'ml-auto '}rounded border border-line px-3 py-1 text-sm disabled:opacity-50`}
+          className={`${email ? '' : 'ml-auto '}shrink-0 whitespace-nowrap rounded border border-line px-3 py-1 text-sm disabled:opacity-50`}
         >
           로그아웃
         </button>
