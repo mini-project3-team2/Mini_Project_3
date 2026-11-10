@@ -284,7 +284,8 @@ class DocumentApiTests(unittest.TestCase):
         self.assertIsNone(self.app.state.resources._collection)
 
     def test_openapi_describes_multipart_contract(self):
-        spec = self.client.get("/openapi.json").json()["paths"]["/internal/documents"]["post"]
+        # /openapi.json은 보안상 비공개(#90)라 HTTP로 받지 않고 앱에서 직접 스펙을 만든다.
+        spec = self.app.openapi()["paths"]["/internal/documents"]["post"]
         fields = spec["requestBody"]["content"]["multipart/form-data"]["schema"]["required"]
         self.assertEqual(set(fields), {"file", "documentId", "ownerUuid", "documentName"})
 

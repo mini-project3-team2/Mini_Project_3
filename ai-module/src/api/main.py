@@ -28,7 +28,11 @@ def create_app(settings_loader: Callable[[], Settings] = load_settings) -> FastA
                 del application.state.resources
                 del application.state.settings
 
-    application = FastAPI(title="AskNote AI", lifespan=lifespan)
+    # 내부 API 문서는 외부에 노출하지 않는다(#90, API 설계서 6.3·연동 명세서 9장).
+    application = FastAPI(
+        title="AskNote AI", lifespan=lifespan,
+        docs_url=None, redoc_url=None, openapi_url=None,
+    )
     application.include_router(health_router)
     application.include_router(documents_router)
     application.include_router(query_router)
