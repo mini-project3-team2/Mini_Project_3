@@ -1,0 +1,79 @@
+# Compose 의 네트워크 분리(edge-net · ai-net · db-net internal)를 NetworkPolicy 로 옮긴 것
+# ⚠️ NetworkPolicy 는 CNI 가 지원해야 적용된다 → `minikube start --cni=calico` 로 시작 (README 1단계)
+#    기본 CNI 로 시작하면 이 정책은 오류 없이 무시된다.
+
+# 1) 기본: 네임스페이스 안의 모든 Pod 로 들어오는 연결 차단
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: asknote
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+# 2) frontend: 외부(사용자) → 8080 허용 — 유일한 공개 진입점
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-allow-external
+  namespace: asknote
+spec:
+  podSelector:
+    matchLabels: {app: frontend}
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - {protocol: TCP, port: 8080}
+---
+# 3) backend: frontend(Nginx) → 8080 만 허용 (Compose edge-net)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-allow-frontend
+  namespace: asknote
+spec:
+  podSelector:
+    matchLabels: {app: backend}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app: frontend}
+      ports:
+        - {protocol: TCP, port: 8080}
+---
+# 4) ai-service: backend → 8000 만 허용 (Compose ai-net) — frontend 는 AI 에 직접 닿을 수 없음
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ai-service-allow-backend
+  namespace: asknote
+spec:
+  podSelector:
+    matchLabels: {app: ai-service}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app: backend}
+      ports:
+        - {protocol: TCP, port: 8000}
+---
+# 5) database: backend → 3306 만 허용 + 밖으로 나가는 연결 차단 (Compose db-net internal: true)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: database-allow-backend-only
+  namespace: asknote
+spec:
+  podSelector:
+    matchLabels: {app: database}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app: backend}
+      ports:
+        - {protocol: TCP, port: 3306}
+  # egress 규칙을 두지 않음 → policyTypes 에 Egress 가 있으므로 밖으로 나가는 연결 모두 차단
