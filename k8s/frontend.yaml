@@ -1,0 +1,50 @@
+# Frontend (React 빌드 + 비root Nginx) — Compose 의 frontend 서비스, 유일한 외부 노출
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: asknote
+  labels: {app: frontend}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: frontend}
+  template:
+    metadata:
+      labels: {app: frontend}
+    spec:
+      containers:
+        - name: frontend
+          image: ekrong01/asknote-frontend   # 태그는 kustomization.yaml 의 images 에서 지정
+          ports:
+            - containerPort: 8080
+          env:
+            - {name: TZ, valueFrom: {configMapKeyRef: {name: asknote-config, key: TZ}}}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 101               # nginx-unprivileged 의 nginx 사용자
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+          resources:
+            requests: {memory: 32Mi, cpu: 50m}
+            limits: {memory: 128Mi}
+          readinessProbe:
+            httpGet: {path: /, port: 8080}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /, port: 8080}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: asknote
+spec:
+  # NodePort: Minikube 노드 포트로 외부 노출 (클라우드 LoadBalancer 가 없는 로컬 클러스터용)
+  # Windows(Docker 드라이버)에서는 노드 IP 로 직접 접속이 안 되므로 README 의 port-forward 로 접속
+  type: NodePort
+  selector: {app: frontend}
+  ports:
+    - {port: 80, targetPort: 8080, nodePort: 30080}

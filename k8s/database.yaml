@@ -1,0 +1,72 @@
+# MariaDB — Compose 의 database 서비스 + db-data 볼륨
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-data
+  namespace: asknote
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: database
+  namespace: asknote
+  labels: {app: database}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}           # 볼륨(RWO)을 한 Pod 만 쓰도록 — 교체 시 기존 Pod 를 먼저 종료
+  selector:
+    matchLabels: {app: database}
+  template:
+    metadata:
+      labels: {app: database}
+    spec:
+      containers:
+        - name: database
+          image: mariadb:10.11.19@sha256:d769e37960821dfdcf096954f6e7ac89f747e116c1bba98e48edd265dfc7deae
+          args: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+          ports:
+            - containerPort: 3306
+          env:
+            - {name: TZ, valueFrom: {configMapKeyRef: {name: asknote-config, key: TZ}}}
+            - {name: MARIADB_DATABASE, valueFrom: {configMapKeyRef: {name: asknote-config, key: MARIADB_DATABASE}}}
+            - {name: MARIADB_USER, valueFrom: {configMapKeyRef: {name: asknote-config, key: MARIADB_USER}}}
+            - {name: MARIADB_ROOT_PASSWORD, valueFrom: {secretKeyRef: {name: asknote-secret, key: MARIADB_ROOT_PASSWORD}}}
+            - {name: MARIADB_PASSWORD, valueFrom: {secretKeyRef: {name: asknote-secret, key: MARIADB_PASSWORD}}}
+          # Compose 와 동일: no-new-privileges 만 적용, capability 는 유지
+          # (공식 이미지가 root 로 시작해 데이터 폴더 chown 후 mysql 사용자로 전환하므로 cap_drop 제외)
+          securityContext:
+            allowPrivilegeEscalation: false
+          resources:
+            requests: {memory: 256Mi, cpu: 100m}
+            limits: {memory: 512Mi}
+          readinessProbe:
+            exec: {command: ["healthcheck.sh", "--connect", "--innodb_initialized"]}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec: {command: ["healthcheck.sh", "--connect"]}
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+          volumeMounts:
+            - {name: db-data, mountPath: /var/lib/mysql}
+      volumes:
+        - name: db-data
+          persistentVolumeClaim: {claimName: db-data}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: database                       # backend 의 DB_HOST=database
+  namespace: asknote
+spec:
+  type: ClusterIP                      # 클러스터 내부 전용
+  selector: {app: database}
+  ports:
+    - {port: 3306, targetPort: 3306}
