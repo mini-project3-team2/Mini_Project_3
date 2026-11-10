@@ -1,3 +1,10 @@
 # 오탐(false positive) 예외 — 실제 비밀 값이 아닌 것만 fingerprint 단위로 등록한다 (파일 · 규칙 전체 예외 금지)
 # auth-check.sh 위조 토큰 테스트용 가짜 값 'abc.def.ghi' (curl-auth-header 규칙), 이후 커밋에서 변수로 변경
 710551266e7b055bceac7bcb006c5238fa84c53d:backend/scripts/auth-check.sh:curl-auth-header:18
+
+# Trivy JSON 보고서(docs/security-review-summary 브랜치) 안의 python 공식 베이스 이미지 빌드 이력 'ENV GPG_KEY=…'
+# → CPython 릴리스 서명 검증용 공개 GPG 키 지문 (비밀 아님, generic-api-key 규칙 오탐) — 해당 위치 4곳만 예외
+c0b4fca16f634fdee06421eee9cd11afbb51eb59:docs/security/trivy-ai-sha-641113f.json:generic-api-key:56
+c0b4fca16f634fdee06421eee9cd11afbb51eb59:docs/security/trivy-ai-sha-641113f.json:generic-api-key:175
+c0b4fca16f634fdee06421eee9cd11afbb51eb59:docs/security/trivy-ai-2026-11-10.json:generic-api-key:56
+c0b4fca16f634fdee06421eee9cd11afbb51eb59:docs/security/trivy-ai-2026-11-10.json:generic-api-key:175
