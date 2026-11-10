@@ -1,0 +1,101 @@
+[auth-final]
+OK   health 공개                              기대 200 / 실제 200
+OK   토큰 없이 인증 API                   기대 401 / 실제 401 UNAUTHORIZED
+OK   위조 토큰                              기대 401 / 실제 401 UNAUTHORIZED
+OK   유효 토큰 (없는 주소 → 404)      기대 404 / 실제 404 NOT_FOUND
+OK   MEMBER 가 /actuator/info                  기대 403 / 실제 403 FORBIDDEN
+OK   재발급                                  기대 200 / 실제 200
+OK   이미 쓴 Refresh 재사용               기대 401 / 실제 401 INVALID_REFRESH_TOKEN
+OK   로그아웃 (토큰 없이)               기대 401 / 실제 401 UNAUTHORIZED
+OK   로그아웃                               기대 204 / 실제 204
+OK   로그아웃한 Refresh 로 재발급      기대 401 / 실제 401 INVALID_REFRESH_TOKEN
+OK   ADMIN 이 /actuator/info                   기대 200 / 실제 200
+
+[document]
+OK   업로드 (가짜 AI mode=ok 기준)     기대 201 / 실제 201
+OK   내 자료 목록                        기대 200 / 실제 200
+OK   목록 첫 번째 = 방금 올린 자료 (최신순) 기대 5 / 실제 5
+OK   남의 목록에 내 자료 안 보임 (other)
+OK   토큰 없이 목록                     기대 401 / 실제 401 UNAUTHORIZED
+OK   토큰 없이 업로드                  기대 401 / 실제 401 UNAUTHORIZED
+OK   없는 자료 삭제                     기대 404 / 실제 404 DOCUMENT_NOT_FOUND
+OK   남의 자료 삭제 (other → student) 기대 403 / 실제 403 FORBIDDEN
+OK   내 자료 삭제                        기대 204 / 실제 204
+
+[feedback]
+OK   내 기록 피드백 HELPFUL               기대 200 / 실제 200
+OK   내 기록 피드백 NOT_HELPFUL 로 변경 기대 200 / 실제 200
+OK   같은 값 다시 보내기 (멱등)       기대 200 / 실제 200
+OK   잘못된 값 (GOOD)                       기대 400 / 실제 400 INVALID_INPUT
+OK   없는 기록                              기대 404 / 실제 404 CHAT_NOT_FOUND
+OK   토큰 없이                              기대 401 / 실제 401 UNAUTHORIZED
+OK   남의 기록 피드백 (student → other) 기대 403 / 실제 403 FORBIDDEN
+OK   other 기록 값이 그대로인지        시도 전 None / 시도 후 None
+
+[upload]
+OK   정상 PDF                                   기대 201 / 실제 201
+OK   확장자만 .pdf 인 가짜 파일 (내용이 PDF 아님) 기대 400 / 실제 400 INVALID_FILE_TYPE
+OK   빈 파일 (0바이트)                      기대 400 / 실제 400 EMPTY_FILE
+OK   내용은 PDF · 확장자 .txt              기대 400 / 실제 400 INVALID_FILE_TYPE
+OK   10MB 초과 (10MB + 1KB)                     기대 413 / 실제 413 FILE_TOO_LARGE
+OK   경로가 들어간 파일명 (../../etc/passwd.pdf) 기대 201 / 실제 201
+OK   긴 한글 파일명 (204자, UTF-8 604바이트) 기대 201 / 실제 201
+
+[sqli]
+OK   로그인 이메일 · 비밀번호에 ' OR '1'='1 기대 401 / 실제 401 INVALID_CREDENTIALS
+OK   로그인 이메일 뒤 주석 처리 (student@test.com' --) 기대 401 / 실제 401 INVALID_CREDENTIALS
+OK   로그인 UNION SELECT                         기대 401 / 실제 401 INVALID_CREDENTIALS
+OK   회원가입 이메일에 ' OR '1'='1          기대 400 / 실제 400 INVALID_INPUT
+OK   자료 삭제 경로에 1 OR 1=1               기대 400 / 실제 400 INVALID_INPUT
+OK   기록 목록 page 파라미터에 1;DROP TABLE 기대 400 / 실제 400 INVALID_INPUT
+OK   질문에 '; DROP TABLE members; --            기대 200 / 실제 200 done 수신 (질문은 문자열로 저장)
+OK   조작 시도 후 정상 로그인 (members 테이블 무사) 기대 200 / 실제 200
+
+[bruteforce]
+시도 1       틀린 비밀번호 -> 401 INVALID_CREDENTIALS
+시도 2       틀린 비밀번호 -> 401 INVALID_CREDENTIALS
+시도 3       틀린 비밀번호 -> 401 INVALID_CREDENTIALS
+시도 4       틀린 비밀번호 -> 401 INVALID_CREDENTIALS
+시도 5       틀린 비밀번호 -> 423 ACCOUNT_LOCKED
+시도 6       틀린 비밀번호 -> 423 ACCOUNT_LOCKED
+시도 7       틀린 비밀번호 -> 423 ACCOUNT_LOCKED
+시도 8       틀린 비밀번호 -> 423 ACCOUNT_LOCKED
+시도 9       틀린 비밀번호 -> 423 ACCOUNT_LOCKED
+시도 10      틀린 비밀번호 -> 423 ACCOUNT_LOCKED
+마지막      올바른 비밀번호 -> 423 ACCOUNT_LOCKED
+
+[chat-final]
+data:[{"documentId": 11, "documentName": "student_note.pdf", "page": 1}]
+   빈 질문            → 400 (기대 400)
+   토큰 없음          → 401 (기대 401)
+   자료 없는 회원     → 400 (기대 400 NO_DOCUMENT)
+data:[{"documentId": 11, "documentName": "student_note.pdf", "page": 1}]
+   내 기록 page=0&size=10 → 200 (기대 200)
+   기본값(파라미터 없음)  → 200 (기대 200)
+   page=-1               → 400 (기대 400)
+   size=0                → 400 (기대 400)
+   size=51               → 400 (기대 400)
+   page=abc              → 400 (기대 400)
+   토큰 없음             → 401 (기대 401)
+   OK   other 기록 id(13 ) 가 student 목록에 없음
+   HELPFUL               → 200 HELPFUL (기대 200 HELPFUL)
+   NOT_HELPFUL 로 변경   → 200 NOT_HELPFUL (기대 200 NOT_HELPFUL)
+   같은 값 다시          → 200 NOT_HELPFUL (기대 200 NOT_HELPFUL)
+   잘못된 값 GOOD        → 400 INVALID_INPUT (기대 400 INVALID_INPUT)
+   소문자 helpful        → 400 INVALID_INPUT (기대 400 INVALID_INPUT)
+   숫자 0                → 400 INVALID_INPUT (기대 400 INVALID_INPUT)
+   숫자 1                → 400 INVALID_INPUT (기대 400 INVALID_INPUT)
+   값 없음 {}            → 400 INVALID_INPUT (기대 400 INVALID_INPUT)
+   null                  → 400 INVALID_INPUT (기대 400 INVALID_INPUT)
+   깨진 JSON             → 400 INVALID_INPUT (기대 400 INVALID_INPUT)
+   id=abc                → 400 INVALID_INPUT (기대 400 INVALID_INPUT)
+   남의 기록 (IDOR)      → 403 FORBIDDEN (기대 403 FORBIDDEN)
+   없는 기록             → 404 CHAT_NOT_FOUND (기대 404 CHAT_NOT_FOUND)
+   토큰 없음             → 401 UNAUTHORIZED (기대 401 UNAUTHORIZED)
+
+[rag-final]
+   A 정보보안학01.pdf → id=13 status=READY
+   B 3_ReactJS.pdf    → id=14 status=READY
+   출처: 정보보안학01.pdf
+   출처: (없음)
+   저장된 출처: []
