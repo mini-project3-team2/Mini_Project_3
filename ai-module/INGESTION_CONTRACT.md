@@ -4,6 +4,8 @@
 
 상태: C1 정책에 따라 C2~C4 서비스·POST API를 구현했다. C4 오류 계약은 API 설계서 6.1과 Mock에 반영했으며, 모의 임베딩·임시 Chroma로 HTTP 검증했다. 실제 모델 API·Backend E2E·DELETE 연동 검증은 남아 있다.
 
+> 이 문서는 2026-11-07 시점의 결정 기록이다. 이후 DELETE API · 질의 API 구현, 500쪽 상한(`TOO_MANY_PAGES`), Backend 연동과 EC2 배포까지 끝났다. 현재 계약은 `docs/4.API설계서.md` 6장과 `docs/7.AI모듈연동명세서.md`가 기준이다.
+
 ## 1. 유지하는 계약
 
 - POST /internal/documents, multipart/form-data. file / documentId / ownerUuid / documentName 각 1개 필수.
@@ -88,6 +90,6 @@ AiDocumentClient는 422 외 오류를 BusinessException(AI_UNAVAILABLE)로 바�
 - [x] C4에서 docs/4.API설계서.md 6.1, mock-data/gen.py와 internal/ 예시 동시 반영. 기존 성공·422 예시는 유지.
 - [x] C4 HTTP 테스트에서 입력·인증·오류 매핑과 임시 Chroma 저장을 검증. 실제 Backend E2E 검증을 대체하지 않는다.
 
-현재 PdfValidator.validate는 TODO다. Backend 선행 검사 완료를 가정하지 않으며 AI 내부 검증을 구현한다. UI에 내부 400/413이 그대로 전달된다고 가정하지 않는다.
+작성 시점(11/7)에는 PdfValidator.validate가 TODO였다(이후 Backend에 구현됨). Backend 선행 검사 완료를 가정하지 않으며 AI 내부 검증을 구현한다. UI에 내부 400/413이 그대로 전달된다고 가정하지 않는다.
 
 확인한 근거: AiDocumentClient.java, DocumentService.java, PdfValidator.java, Member.java, core/security.py, API 설계서 6장, mock-data/gen.py의 내부 적재 응답 2종.
