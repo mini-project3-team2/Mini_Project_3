@@ -403,11 +403,11 @@ git checkout -b feature/<기능>
 
 **GitHub 설정 (저장소 생성 직후)**
 
-- [ ] Settings → General → Pull Requests: **Allow merge commits 만** 허용 (Squash·Rebase 해제)
-- [ ] Settings → Branches: `main` 보호 (PR 필수, 승인 1명, status check `gitleaks` 필수)
-- [ ] Settings → Code security: Secret scanning, Push protection 활성화
-- [ ] Issues → Labels: `security` 라벨 생성
-- [ ] Settings → Secrets and variables → Actions:
+- [x] Settings → General → Pull Requests: **Allow merge commits 만** 허용 (Squash·Rebase 해제)
+- [x] Settings → Branches: `main` 보호 (PR 필수, 승인 1명, status check `gitleaks` 필수)
+- [x] Settings → Code security: Secret scanning, Push protection 활성화
+- [x] Issues → Labels: `security` 라벨 생성
+- [x] Settings → Secrets and variables → Actions:
   - `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
   - 배포용 `OPENAI_API_KEY`, `TAVILY_API_KEY`, `JWT_SECRET`, DB 비밀번호 → EC2 `.env` 또는 K8s Secret 으로 전달 (가이드 3.4)
   - (가산: EC2 자동 배포) `EC2_HOST`, `EC2_USER`, `EC2_SSH_KEY` - 배포 가이드에는 **이름만** 기재
