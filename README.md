@@ -26,12 +26,12 @@
 
 | 이름 | 역할 | 담당 |
 |---|---|---|
-| 강찬식 | LLM |  |
-| 김지우 | LLM |  |
-| 서다영 | DevOps |  |
-| 윤수연 | Backend |  |
-| 전승호 | Frontend |  |
-| 정성재 | Backend |  |
+| 강찬식 | LLM | 자료 적재 (PDF 로드 · 분할 · 임베딩 · Chroma 저장) |
+| 김지우 | LLM | 질의 (소유자 필터 검색 · 답변 스트리밍 · 프롬프트) |
+| 서다영 | DevOps | Dockerfile · Compose · GitHub Actions · EC2 · Minikube |
+| 윤수연 | Backend | 인증 · 보안 · 핵심 흐름 (업로드 · SSE 중계) |
+| 전승호 | Frontend | 화면 · 라우팅 · 상태 관리 |
+| 정성재 | Backend | 조회 · 검증 |
 
 > 역할 예: Team Lead / Backend / Frontend / LLM / DevOps
 
@@ -45,7 +45,7 @@
 - **2. 커밋 작성자 설정** - GitHub 계정 이메일과 같게 → [3.2](#32-저장소-최초-세팅-1회)
 - **3. 저장소 받기 + pre-commit 설치** → [3.2](#32-저장소-최초-세팅-1회)
 - **4. `.env` 만들기** - `cp .env.example .env` 후 값 채우기 → [3.3](#33-env-작성)
-- **5. DB 실행** - Docker Desktop 켜고 `docker compose up -d` → [3.4](#34-db-실행-확인)
+- **5. DB 실행** - Docker Desktop 켜고 `docker compose up -d database` → [3.4](#34-db-실행-확인)
 - **6. 내 파트 시작** - 프로젝트가 아직 없으면 생성, 있으면 합류 → [4장](#4-파트별-시작)
 
 ---
@@ -69,7 +69,7 @@
 ```
 [사용자] → [Frontend: React] → [Backend: Spring Boot] → [AI Module: FastAPI + LangChain]
                                       ↓                          ↓
-                                 [RDB: MariaDB]            [Vector DB: FAISS/Chroma]
+                                 [RDB: MariaDB]            [Vector DB: Chroma]
 ```
 
 - Frontend 는 AI Module 을 **직접 호출하지 않습니다.** 반드시 Backend 를 거칩니다.
@@ -94,9 +94,12 @@
 ├── backend/              # Spring Boot
 ├── frontend/             # React (Vite)          .nvmrc → Node 버전 고정
 ├── ai-module/            # FastAPI + LangChain   .python-version → Python 버전 고정
-├── docs/                 # 개발 산출물 9종
+├── docs/                 # 개발 산출물 9종 + 보안 점검 근거(docs/security/)
+├── k8s/                  # Kubernetes(Minikube) 매니페스트 (가산 과제, k8s/README.md)
+├── mock-data/            # API 설계서 형식의 Mock 응답 (Frontend MSW · Backend 테스트 기준)
 ├── .github/              # Actions(비밀정보 검사, Build & Push), PR·이슈 템플릿
-├── docker-compose.yml    # 로컬 개발용
+├── docker-compose.yml       # 로컬 개발용 (4개 서비스 빌드 · 기동)
+├── docker-compose.prod.yml  # 운영(EC2)용 (Docker Hub 이미지 pull, frontend 80 만 공개)
 ├── .env.example          # 환경변수 샘플 (값 없음, Backend·AI·DB 공용)
 └── README.md
 ```
@@ -114,15 +117,15 @@
 |---|---|---|---|
 | Frontend | React **19.3.x**, React Router, **Zustand**, Vite | `frontend/package.json` | `node:24.22.2-alpine3.24` → `nginxinc/nginx-unprivileged:1.31.7-alpine3.24` (비root) |
 | Backend | Spring Boot **4.0.x**, Spring Security **7.x**, JPA, Java **17** | `backend/pom.xml` | Maven + `eclipse-temurin:17.0.21_9-jdk-resolute` → `eclipse-temurin:17.0.21_9-jre-resolute` |
-| AI Module | Python **3.12**, uv **0.12.23**, FastAPI, LangChain, Tavily(필요 시) | `ai-module/.python-version`, `uv.lock` | `python:3.12.16-slim-trixie` (+ `ghcr.io/astral-sh/uv:0.12.23`) |
-| Database | MariaDB, Vector DB (FAISS 또는 Chroma), Flyway | `docker-compose.yml` | `mariadb:10.11.19` |
+| AI Module | Python **3.12**, uv **0.12.23**, FastAPI, LangChain | `ai-module/.python-version`, `uv.lock` | `python:3.12.16-slim-trixie` (+ `ghcr.io/astral-sh/uv:0.12.23`) |
+| Database | MariaDB, Vector DB (Chroma), Flyway | `docker-compose.yml` | `mariadb:10.11.19` |
 | Infra | Docker, Docker Compose, GitHub Actions, AWS EC2, (Minikube / GCP GKE) | | |
 
 ### LLM · 임베딩 (가이드 3.4 · Key 는 강사 제공)
 
 | 구분 | 개발·테스트 (로컬) | 배포 (EC2 / K8s) |
 |---|---|---|
-| LLM | **Groq** | **OpenAI** |
+| LLM | **Groq** `openai/gpt-oss-20b` | **OpenAI** `gpt-4o-mini` |
 | 임베딩 | **OpenAI `text-embedding-3-small`** (1536차원) | **OpenAI `text-embedding-3-small`** (1536차원) |
 | Key | `GROQ_API_KEY` + `OPENAI_API_KEY`(임베딩) | `OPENAI_API_KEY` |
 
@@ -236,8 +239,8 @@ cp .env.example .env
 **Docker Desktop 을 먼저 켠 뒤:**
 
 ```bash
-docker compose up -d
-docker compose ps         # database 가 (healthy) 이면 완료
+docker compose up -d database    # DB 만 실행 (서비스 이름을 빼면 4개 서비스를 모두 빌드 · 기동)
+docker compose ps                # database 가 (healthy) 이면 완료
 ```
 
 ---
@@ -257,7 +260,7 @@ docker compose ps         # database 가 (healthy) 이면 완료
 
 ```bash
 git checkout develop && git pull origin develop
-docker compose up -d                 # DB (Docker Desktop 실행 상태)
+docker compose up -d database        # DB (Docker Desktop 실행 상태)
 
 # ↓ 내 파트 하나만 실행 (저장소 최상위에서)
 cd backend   && ./mvnw spring-boot:run
@@ -428,10 +431,11 @@ git checkout -b feature/<기능>
 
 | 대상 | 명령 | 주소 |
 |---|---|---|
-| DB | `docker compose up -d` | localhost:3306 (`DB_LOCAL_PORT`) |
+| DB | `docker compose up -d database` | localhost:3306 (`DB_LOCAL_PORT`) |
 | Backend | `./mvnw spring-boot:run` | http://localhost:8080 |
 | AI Module | `uv run uvicorn src.api.main:app --reload --port 8000` | http://localhost:8000 |
 | Frontend | `npm run dev` | http://localhost:5173 |
+| 전체 (Compose) | `docker compose up -d --build` | http://localhost (`FRONTEND_LOCAL_PORT`, Nginx 가 `/api` 프록시) |
 
 ```bash
 docker compose ps                  # 상태 확인
@@ -501,7 +505,7 @@ git push -u origin feature/be-auth-jwt
 - 제목은 커밋 형식과 동일, 본문에 **무엇을 / 어떻게 확인했는지** 작성 (보안 조치는 조치 전·후 응답 코드)
 - 보안 조치 PR은 본문에 `Closes #이슈번호` 필수 (병합 시 Issue 자동 종료)
 - 병합 방식: **Create a merge commit** (Squash 금지: 개인 커밋 이력 보존)
-- 병합 후 작업 브랜치 삭제
+- 병합 후에도 작업 브랜치는 삭제하지 않음 (작업 기록으로 보존)
 
 ### 6.5 보안 이슈 처리
 
@@ -528,7 +532,7 @@ PR 본문     Closes #이슈번호  →  병합 시 Issue 자동 종료
 | 커밋 | `fix(security): 자료 삭제 시 소유자 검증 후 403 반환 (#12)` |
 | PR | 본문에 `Closes #12` |
 
-Issue 템플릿 항목 (`.github/ISSUE_TEMPLATE/security.md`)
+Issue 템플릿 항목 (`.github/ISSUE_TEMPLATE/security-finding.md`)
 
 - **OWASP 분류**: 예) A01 Broken Access Control
 - **대상**: API 경로 / 화면 / 모듈
@@ -591,8 +595,8 @@ Issue 템플릿 항목 (`.github/ISSUE_TEMPLATE/security.md`)
   |---|---|
   | Spring Boot 3.2 | 4.0.x |
   | React 18 / Redux | 19.3.x / **Zustand** |
-  | Python 3.11 / `python:3.11-slim` | 3.12 / `python:3.12-slim` |
-  | `node:20-alpine` | `node:24-alpine` |
+  | Python 3.11 / `python:3.11-slim` | 3.12 / `python:3.12.16-slim-trixie` |
+  | `node:20-alpine` | `node:24.22.2-alpine3.24` |
   | 벡터 차원 1536 (단일) | 1536 (개발·배포 공통 `text-embedding-3-small`) |
   | AI 환경변수 | 가이드 3.4 변수명 |
 

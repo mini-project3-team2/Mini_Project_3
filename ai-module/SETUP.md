@@ -1,6 +1,6 @@
 # AI 모듈 개발 환경 준비
 
-Python 프로젝트·공통 설정·FastAPI `/health`·내부 인증·공통 클라이언트와 `POST /internal/documents` 적재 API가 구현돼 있습니다. 삭제·질의 API는 아직 구현하지 않았습니다.
+Python 프로젝트·공통 설정·FastAPI `/health`·내부 인증·공통 클라이언트와 `POST /internal/documents` 적재 API, `DELETE /internal/documents/{documentId}` 삭제 API, `POST /internal/query/stream` 질의 API가 구현돼 있습니다. API 계약과 운영 설정은 `docs/7.AI모듈연동명세서.md`가 기준입니다.
 
 ## 1. 실행 환경
 
@@ -184,4 +184,4 @@ PDF 처리는 작업 스레드에서 수행하며 취소 시 작업이 끝날 �
 
 C5에서 잠금 의존성·63개 회귀 테스트·실제 로컬 Uvicorn HTTP·Mock 재생성을 확인했습니다. [C단계 최종 검증 기록](validation/2026-11-07/c-stage-verification.md)에 완료 근거와 한계를 정리했습니다. HTTP 검증은 `uv run --locked --offline python scripts/smoke_ingestion_offline.py`로 재현할 수 있습니다(로컬 임시 포트·합성 PDF·모의 임베딩·임시 Chroma만 사용).
 
-다음은 D단계 DELETE API와 적재·삭제 경합입니다. 실제 API 성능 검증은 E단계에 남아 있습니다. C단계 완료는 실제 OpenAI PDF 적재나 Backend E2E 검증 완료를 뜻하지 않습니다.
+위 문단은 C단계(11/7) 시점 기록입니다. 이후 DELETE API와 질의 API를 구현했고, 실제 API 검증은 `validation/2026-11-08/`, Backend 연동과 EC2 배포 결과는 `docs/7.AI모듈연동명세서.md` · `docs/8.컨테이너배포가이드.md`에 정리했습니다. 단위 테스트는 125개입니다(2026-11-10 기준).
